@@ -1,6 +1,8 @@
 const { createAppError } = require("../utils/createAppError");
 const { FoodEntry, mapFoodEntryToAnalysis } = require("../models/FoodEntry");
 const { DailyWater } = require("../models/DailyWater");
+const { UserProfile } = require("../models/UserProfile");
+const { awardXP } = require("../services/gamificationService");
 
 const getHistory = async (req, res, next) => {
   try {
@@ -69,6 +71,15 @@ const addWater = async (req, res, next) => {
       { $inc: { water_intake_ml: amount_ml } },
       { new: true, upsert: true }
     );
+
+    // Gamification
+    await awardXP(null, "LOG_WATER", amount_ml);
+
+    // Check if goal reached
+    const profile = await UserProfile.findOne({ profile_key: "primary" }).lean();
+    if (profile && entry.water_intake_ml >= profile.water_goal_ml && (entry.water_intake_ml - amount_ml) < profile.water_goal_ml) {
+      await awardXP(null, "GOAL_REACHED_WATER");
+    }
 
     res.status(200).json({
       success: true,

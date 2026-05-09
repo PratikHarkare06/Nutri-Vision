@@ -109,6 +109,9 @@ export type UserProfile = {
   weightLossCalories?: number;
   weightGainCalories?: number;
   waterGoalMl?: number;
+  xp?: number;
+  level?: number;
+  unlockedBadges?: string[];
   updatedAt: string;
 };
 

@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { UploadCard } from "../components/UploadCard";
 import { HydrationWidget } from "../components/HydrationWidget";
+import { GamificationWidget } from "../components/GamificationWidget";
 import { useUploadStore } from "../store/uploadStore";
 import { fetchProfileRequest, suggestMealsRequest } from "../services/profileApi";
 import { fetchHistoryRequest } from "../services/historyApi";
@@ -235,6 +236,14 @@ export const DashboardPage = ({ onUploadSuccess }: DashboardPageProps) => {
           </div>
         </div>
 
+        <div className="md:col-span-1 slide-up">
+          <GamificationWidget 
+            xp={profile?.xp || 0} 
+            level={profile?.level || 1} 
+            badges={profile?.unlockedBadges || []} 
+          />
+        </div>
+        
         {/* Hydration Widget */}
         <div className="h-full">
           <HydrationWidget />

@@ -2,6 +2,7 @@ const { env } = require("../config/env");
 const { FoodEntry, mapFoodEntryToAnalysis } = require("../models/FoodEntry");
 const { analyzeFoodWithFatSecret } = require("../services/fatSecretAnalysisService");
 const { createAppError } = require("../utils/createAppError");
+const { awardXP } = require("../services/gamificationService");
 
 const uploadImage = async (req, res, next) => {
   if (!req.file) {
@@ -36,6 +37,9 @@ const uploadImage = async (req, res, next) => {
       meal_category: analysis.mealCategory,
       volume_source: analysis.volumeSource,
     });
+
+    // Gamification
+    await awardXP(null, "LOG_MEAL");
 
     res.status(200).json({
       success: true,
@@ -214,6 +218,9 @@ const scanBarcode = async (req, res, next) => {
       meal_category: "Packaged",
       volume_source: "barcode",
     });
+
+    // Gamification
+    await awardXP(null, "LOG_MEAL");
 
     res.status(200).json({
       success: true,
