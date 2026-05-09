@@ -50,6 +50,11 @@ export const suggestMealsRequest = async (remainingCalories: number, remainingPr
   return response.data;
 };
 
+export const generateDietPlanRequest = async (signal?: AbortSignal) => {
+  const response = await profileApi.post("/profile/diet-plan", {}, { signal });
+  return response.data;
+};
+
 export const getProfileErrorMessage = (error: unknown) =>
   getApiErrorMessage(error, "Failed to load profile. Retry.");
 

@@ -5,6 +5,7 @@ import { HistoryPage } from "./pages/HistoryPage";
 import { InsightsPage } from "./pages/InsightsPage";
 import { ProfilePage } from "./pages/ProfilePage";
 import { ResultsPage } from "./pages/ResultsPage";
+import { DietPlanPage } from "./pages/DietPlanPage";
 
 const getPathname = () => window.location.pathname || "/";
 
@@ -35,6 +36,8 @@ function App() {
           <HistoryPage onNavigate={navigate} />
         ) : pathname === "/profile" ? (
           <ProfilePage onNavigate={navigate} />
+        ) : pathname === "/diet-plan" ? (
+          <DietPlanPage />
         ) : (
           <DashboardPage onUploadSuccess={() => navigate("/results")} />
         )}

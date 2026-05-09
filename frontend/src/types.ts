@@ -42,6 +42,25 @@ export type UploadAnalysis = {
   volumeSource?: "midas" | "density";
 };
 
+export type MealPlan = {
+  type: string;
+  name: string;
+  description: string;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+};
+
+export type DailyDietPlan = {
+  day: string;
+  totalCalories: number;
+  totalProtein: number;
+  totalCarbs: number;
+  totalFat: number;
+  meals: MealPlan[];
+};
+
 export type UserProfile = {
   id: string;
   fullName: string;
@@ -52,6 +71,7 @@ export type UserProfile = {
   height: number;
   weight: number;
   dietMode?: string;
+  dietPlan?: DailyDietPlan[];
   dietaryRestrictions: string[];
   foodAllergies: string[];
   healthGoals?: string[];

@@ -126,7 +126,7 @@ const saveProfile = async (req, res, next) => {
   }
 };
 
-const { getMealSuggestions } = require("../services/geminiAnalysisService");
+const { getMealSuggestions, generatePersonalizedDietPlan } = require("../services/geminiAnalysisService");
 
 const suggestMeals = async (req, res, next) => {
   try {
@@ -141,4 +141,30 @@ const suggestMeals = async (req, res, next) => {
   }
 };
 
-module.exports = { getProfile, saveProfile, suggestMeals };
+const generateDietPlan = async (req, res, next) => {
+  try {
+    const profile = await UserProfile.findOne(profileFilter).lean();
+    if (!profile) {
+      return next(createAppError(404, "NOT_FOUND", "Profile not found"));
+    }
+
+    // Need to calculate metrics first
+    const { calculateBMIAndCalories } = require("../models/UserProfile");
+    // Since calculateBMIAndCalories is not exported directly, wait, I can just recalculate here
+    // or I can call mapUserProfileToResponse which returns metrics.
+    const mapped = mapUserProfileToResponse(profile);
+    
+    // mapped contains maintenanceCalories, etc.
+    const dietPlan = await generatePersonalizedDietPlan(profile, mapped);
+    
+    // Save to DB
+    await UserProfile.findOneAndUpdate(profileFilter, { diet_plan: dietPlan });
+    
+    res.status(200).json({ success: true, data: dietPlan });
+  } catch (error) {
+    console.error(error);
+    next(createAppError(500, "GENERATE_FAILED", "Failed to generate diet plan. Retry."));
+  }
+};
+
+module.exports = { getProfile, saveProfile, suggestMeals, generateDietPlan };

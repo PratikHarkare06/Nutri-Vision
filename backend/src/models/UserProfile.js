@@ -94,6 +94,10 @@ const userProfileSchema = new mongoose.Schema(
       required: true,
       type: Number,
     },
+    diet_plan: {
+      type: Object, // Will store the JSON structure of the 7-day plan
+      default: null,
+    },
   },
   {
     collection: "users",
@@ -175,6 +179,7 @@ const mapUserProfileToResponse = (profile) => {
     gender: profile.gender,
     height: profile.height_cm,
     dietMode: profile.diet_mode || "Balanced",
+    dietPlan: profile.diet_plan || null,
     id: profile._id.toString(),
     updatedAt: profile.updated_at,
     weight: profile.weight_kg,

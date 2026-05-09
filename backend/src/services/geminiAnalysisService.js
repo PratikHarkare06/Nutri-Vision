@@ -52,7 +52,7 @@ Ensure the estimated weight is in grams (g) and volume is in cubic centimeters (
       },
     });
 
-    const textOutput = response.text();
+    const textOutput = response.text;
     const parsedData = JSON.parse(textOutput);
 
     // Build final analysis object expected by the rest of the application
@@ -97,11 +97,67 @@ Return a JSON array of 3 objects, each with:
       contents: [prompt],
       config: { responseMimeType: "application/json" },
     });
-    return JSON.parse(response.text());
+    return JSON.parse(response.text);
   } catch (error) {
     console.error("Gemini Advisor Error:", error);
     return [];
   }
 };
 
-module.exports = { analyzeFoodImageWithGemini, getMealSuggestions };
+const generatePersonalizedDietPlan = async (profile, metrics) => {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) throw new Error("GEMINI_API_KEY is not configured.");
+
+  const ai = new GoogleGenAI({ apiKey });
+  
+  const restrictions = profile.dietary_restrictions?.length ? profile.dietary_restrictions.join(", ") : "None";
+  const allergies = profile.food_allergies?.length ? profile.food_allergies.join(", ") : "None";
+  const targetCalories = metrics.maintenanceCalories; // Use maintenance or adjust based on a goal if we had one.
+  const dietMode = profile.diet_mode || "Balanced";
+
+  const prompt = `You are a world-class Indian nutritionist.
+Create a detailed 7-day personalized meal plan for a user with the following profile:
+- Age: ${profile.age}, Gender: ${profile.gender}, Weight: ${profile.weight_kg}kg, Height: ${profile.height_cm}cm
+- Activity Level: ${profile.activity_level}
+- Target Daily Calories: ~${targetCalories} kcal
+- Diet Mode: ${dietMode}
+- Dietary Restrictions: ${restrictions}
+- Allergies: ${allergies}
+
+Return ONLY a valid JSON array of exactly 7 objects (one for each day, Monday to Sunday). Each day object must exactly follow this schema:
+{
+  "day": "Monday",
+  "totalCalories": 2000,
+  "totalProtein": 120,
+  "totalCarbs": 200,
+  "totalFat": 60,
+  "meals": [
+    {
+      "type": "Breakfast",
+      "name": "Oats Idli with Sambar",
+      "description": "Healthy oats idli served with protein-rich lentil sambar.",
+      "calories": 400,
+      "protein": 15,
+      "carbs": 60,
+      "fat": 10
+    },
+    // ... exactly 4 meals per day: Breakfast, Lunch, Snack, Dinner
+  ]
+}
+
+Ensure the daily macros closely sum up to the Target Daily Calories. Make the meals realistic, emphasizing Indian cuisine where appropriate while strictly adhering to the user's Diet Mode and allergies. Do not return anything outside the JSON array.`;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: [prompt],
+      config: { responseMimeType: "application/json" },
+    });
+    return JSON.parse(response.text);
+  } catch (error) {
+    console.error("Gemini Diet Plan Error:", error);
+    throw new Error("Failed to generate diet plan");
+  }
+};
+
+module.exports = { analyzeFoodImageWithGemini, getMealSuggestions, generatePersonalizedDietPlan };
