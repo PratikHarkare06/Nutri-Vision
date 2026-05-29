@@ -9,7 +9,7 @@ export const DietPlanPage = () => {
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [selectedDay, setSelectedDay] = useState<string>("Monday");
+  const [selectedDay, setSelectedDay] = useState<string>("Tuesday");
   const [groceryList, setGroceryList] = useState<any[]>([]);
   const [isGroceryLoading, setIsGroceryLoading] = useState(false);
   const [isGroceryOpen, setIsGroceryOpen] = useState(false);
@@ -67,189 +67,243 @@ export const DietPlanPage = () => {
     );
   }
 
-  if (error && !profile?.dietPlan) {
-    return (
-      <div className="p-8">
-        <div className="bg-danger/10 border border-danger/20 text-danger p-4 rounded-xl">
-          {error}
-        </div>
-      </div>
-    );
-  }
+  // Predefined list of mock meal images to show
+  const getMealImage = (mealType: string) => {
+    if (mealType.toLowerCase().includes("breakfast") || mealType.toLowerCase().includes("toast")) {
+      return "https://images.unsplash.com/photo-1541532713592-79a0317b6b77?w=600&auto=format&fit=crop&q=80";
+    }
+    if (mealType.toLowerCase().includes("lunch") || mealType.toLowerCase().includes("quinoa")) {
+      return "https://images.unsplash.com/photo-1505576399279-565b52d4ac71?w=600&auto=format&fit=crop&q=80";
+    }
+    return "https://images.unsplash.com/photo-1485921325814-a5dad423a3b6?w=600&auto=format&fit=crop&q=80"; // Salmon
+  };
 
   const daysOfWeek = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
-  const activePlan: DailyDietPlan | undefined = profile?.dietPlan?.find(d => d.day === selectedDay);
+  
+  // Custom mock plan list if none generated yet to match mockup screenshot
+  const defaultDietPlan: DailyDietPlan[] = [
+    {
+      day: "Monday",
+      totalCalories: 1850,
+      totalProtein: 110,
+      totalCarbs: 210,
+      totalFat: 60,
+      meals: [
+        { type: "Breakfast", name: "Oatmeal with berries", description: "Steel cut oats with fruit", calories: 400, protein: 15, carbs: 65, fat: 8 }
+      ]
+    },
+    {
+      day: "Tuesday",
+      totalCalories: 1920,
+      totalProtein: 120,
+      totalCarbs: 220,
+      totalFat: 65,
+      meals: [
+        { type: "Breakfast", name: "Avocado Toast with Poached Egg", description: "Whole grain sourdough, smashed avocado, and two organic eggs.", calories: 420, protein: 18, carbs: 32, fat: 12 },
+        { type: "Lunch", name: "Mediterranean Quinoa Bowl", description: "Fresh cucumbers, feta cheese, chickpeas, and lemon-herb dressing.", calories: 580, protein: 14, carbs: 45, fat: 16 },
+        { type: "Dinner", name: "Grilled Salmon & Asparagus", description: "Wild-caught salmon with roasted garlic asparagus and brown rice.", calories: 650, protein: 38, carbs: 20, fat: 22 }
+      ]
+    },
+    {
+      day: "Wednesday",
+      totalCalories: 1700,
+      totalProtein: 105,
+      totalCarbs: 180,
+      totalFat: 55,
+      meals: []
+    },
+    {
+      day: "Thursday",
+      totalCalories: 2100,
+      totalProtein: 130,
+      totalCarbs: 240,
+      totalFat: 70,
+      meals: []
+    },
+    {
+      day: "Friday",
+      totalCalories: 1880,
+      totalProtein: 115,
+      totalCarbs: 215,
+      totalFat: 60,
+      meals: []
+    }
+  ];
+
+  const planList = profile?.dietPlan && profile.dietPlan.length > 0 ? profile.dietPlan : defaultDietPlan;
+  const activePlan = planList.find(d => d.day === selectedDay) || planList[1];
+
+  const getDayLabel = (day: string) => {
+    switch (day) {
+      case "Monday": return { num: "23", title: "Detox & High Pr...", label: "MON", count: "4 Meals" };
+      case "Tuesday": return { num: "24", title: "Balanced Energy", label: "TUE", count: "3 Meals" };
+      case "Wednesday": return { num: "25", title: "Low Carb Focus", label: "WED", count: "4 Meals" };
+      case "Thursday": return { num: "26", title: "Muscle Recovery", label: "THU", count: "5 Meals" };
+      case "Friday": return { num: "27", title: "Healthy Fats", label: "FRI", count: "3 Meals" };
+      default: return { num: "28", title: "Standard Diet", label: "SAT", count: "3 Meals" };
+    }
+  };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6 pb-20 fade-in">
+    <div className="flex-1 min-h-screen bg-background relative overflow-y-auto pb-24 px-8 pt-8">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <header className="max-w-6xl mx-auto w-full flex justify-between items-center mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-textMain tracking-tight">AI Diet Plan</h1>
+          <h1 className="text-3xl font-bold text-textHeading tracking-tight">Weekly Diet Plan</h1>
           <p className="text-textMuted text-sm mt-1">
-            Personalized meal plans built for your {profile?.dietMode || "Balanced"} diet.
+            Your personalized nutrition strategy for weight loss.
           </p>
         </div>
-        {profile?.dietPlan && (
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handleGenerateGrocery}
-              disabled={isGroceryLoading}
-              className="flex items-center gap-2 px-4 py-2 bg-primary/10 text-primary border border-primary/20 rounded-lg text-sm font-bold hover:bg-primary hover:text-white transition-colors disabled:opacity-50"
-            >
-              {isGroceryLoading ? (
-                <div className="animate-spin h-4 w-4 border-2 border-current border-t-transparent rounded-full" />
-              ) : (
-                <span className="text-lg leading-none">🛒</span>
-              )}
-              Grocery List
-            </button>
-            <button
-              onClick={handleGenerate}
-              disabled={generating}
-              className="flex items-center gap-2 px-4 py-2 bg-panel border border-panelBorder rounded-lg text-sm font-medium text-textMain hover:border-primary transition-colors disabled:opacity-50"
-            >
-              {generating ? (
-                <div className="animate-spin h-4 w-4 border-2 border-primary border-t-transparent rounded-full" />
-              ) : (
-                <SparklesIcon className="w-4 h-4 text-primary" />
-              )}
-              Regenerate Plan
-            </button>
-          </div>
-        )}
-      </div>
-
-      {!profile?.dietPlan ? (
-        <div className="flex flex-col items-center justify-center py-20 px-4 text-center bg-panel border border-panelBorder rounded-2xl">
-          <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mb-6">
-            <CalendarIcon className="w-8 h-8 text-primary" />
-          </div>
-          <h2 className="text-xl font-bold text-textMain mb-2">No Diet Plan Generated Yet</h2>
-          <p className="text-textMuted max-w-md mb-8">
-            Let our AI nutritionist build a complete 7-day meal plan perfectly optimized for your {profile?.maintenanceCalories} kcal target and {profile?.dietMode} preferences.
-          </p>
+        <div className="flex items-center gap-3">
           <button
             onClick={handleGenerate}
             disabled={generating}
-            className="flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-xl font-bold hover:bg-orange-600 transition-all active:scale-95 disabled:opacity-50"
+            className="flex items-center gap-1.5 px-5 py-2.5 bg-white border border-[#E2E4DC] hover:bg-surfaceAlt text-textHeading text-xs font-bold rounded-full transition-colors disabled:opacity-50 shadow-sm"
           >
             {generating ? (
-              <>
-                <div className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full" />
-                Generating Plan...
-              </>
+              <div className="animate-spin h-3.5 w-3.5 border-2 border-primary border-t-transparent rounded-full" />
             ) : (
-              <>
-                <SparklesIcon className="w-5 h-5" />
-                Generate My Custom Plan
-              </>
+              <span className="text-sm">🔄</span>
             )}
+            Regenerate Plan
           </button>
-          {error && <p className="text-danger mt-4 text-sm">{error}</p>}
+          <button
+            onClick={handleGenerateGrocery}
+            disabled={isGroceryLoading}
+            className="flex items-center gap-1.5 px-5 py-2.5 bg-[#9DB89F] hover:bg-[#7A9E7E] text-white rounded-full text-xs font-bold transition-all disabled:opacity-50 shadow-sm"
+          >
+            {isGroceryLoading ? (
+              <div className="animate-spin h-3.5 w-3.5 border-2 border-white border-t-transparent rounded-full" />
+            ) : (
+              <span className="text-sm">🛒</span>
+            )}
+            Grocery List
+          </button>
         </div>
-      ) : (
-        <>
-          {/* Day Tabs */}
-          <div className="flex overflow-x-auto gap-2 pb-2 scrollbar-hide">
-            {profile.dietPlan.map((dayPlan) => (
-              <button
-                key={dayPlan.day}
-                onClick={() => setSelectedDay(dayPlan.day)}
-                className={`px-5 py-2.5 rounded-full whitespace-nowrap font-medium text-sm transition-all ${
-                  selectedDay === dayPlan.day
-                    ? "bg-primary text-white shadow-lg shadow-primary/20"
-                    : "bg-panel border border-panelBorder text-textMuted hover:text-textMain hover:border-textMuted/30"
-                }`}
-              >
-                {dayPlan.day}
-              </button>
-            ))}
-          </div>
+      </header>
 
-          {activePlan && (
-            <div className="space-y-6 slide-up">
-              {/* Daily Macro Summary */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="bg-panel border border-panelBorder rounded-xl p-4 flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-orange-500/10 flex items-center justify-center">
-                    <FireIcon className="w-5 h-5 text-orange-500" />
-                  </div>
-                  <div>
-                    <div className="text-xs text-textMuted font-medium">Calories</div>
-                    <div className="font-bold text-textMain">{activePlan.totalCalories}</div>
-                  </div>
-                </div>
-                <div className="bg-panel border border-panelBorder rounded-xl p-4 flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center">
-                    <ProteinIcon className="w-5 h-5 text-blue-500" />
-                  </div>
-                  <div>
-                    <div className="text-xs text-textMuted font-medium">Protein</div>
-                    <div className="font-bold text-textMain">{activePlan.totalProtein}g</div>
-                  </div>
-                </div>
-                <div className="bg-panel border border-panelBorder rounded-xl p-4 flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-green-500/10 flex items-center justify-center">
-                    <BoltIcon className="w-5 h-5 text-green-500" />
-                  </div>
-                  <div>
-                    <div className="text-xs text-textMuted font-medium">Carbs</div>
-                    <div className="font-bold text-textMain">{activePlan.totalCarbs}g</div>
-                  </div>
-                </div>
-                <div className="bg-panel border border-panelBorder rounded-xl p-4 flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-yellow-500/10 flex items-center justify-center">
-                    <div className="w-5 h-5 rounded-full border-2 border-yellow-500 opacity-80" />
-                  </div>
-                  <div>
-                    <div className="text-xs text-textMuted font-medium">Fat</div>
-                    <div className="font-bold text-textMain">{activePlan.totalFat}g</div>
-                  </div>
-                </div>
-              </div>
+      {/* Main Grid Content */}
+      <main className="max-w-6xl mx-auto w-full grid grid-cols-1 lg:grid-cols-[1.1fr_1.4fr] gap-8">
+        
+        {/* Left Column (Days timeline) */}
+        <div className="space-y-6">
+          <div className="text-sm font-bold text-textHeading uppercase tracking-wider mb-2">October 2023</div>
+          <div className="space-y-4">
+            {planList.slice(0, 5).map((dayPlan) => {
+              const active = selectedDay === dayPlan.day;
+              const details = getDayLabel(dayPlan.day);
+              return (
+                <button
+                  key={dayPlan.day}
+                  onClick={() => setSelectedDay(dayPlan.day)}
+                  className={`w-full flex items-center justify-between p-4 rounded-3xl border transition-all text-left bg-white
+                    ${active 
+                      ? "border-[#9DB89F] ring-2 ring-[#9DB89F]/20 shadow-md" 
+                      : "border-border hover:border-gray-400 shadow-sm"
+                    }`}
+                >
+                  <div className="flex items-center gap-4">
+                    {/* Day Badge */}
+                    <div className={`w-12 h-12 rounded-2xl flex flex-col items-center justify-center font-bold text-xs shrink-0
+                      ${active 
+                        ? "bg-[#EBF2EB] text-[#2C3E2B]" 
+                        : "bg-[#F5F6F1] text-textMuted"
+                      }`}
+                    >
+                      <span className="text-[10px] uppercase font-bold leading-none mb-0.5">{details.label}</span>
+                      <span className="text-base leading-none font-extrabold">{details.num}</span>
+                    </div>
 
-              {/* Meals List */}
-              <div className="space-y-4">
-                {activePlan.meals.map((meal, idx) => (
-                  <div key={idx} className="bg-panel border border-panelBorder rounded-2xl p-5 hover:border-primary/50 transition-colors">
-                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                      <div>
-                        <div className="text-xs font-bold text-primary tracking-wider uppercase mb-1">
-                          {meal.type}
-                        </div>
-                        <h3 className="text-lg font-bold text-textMain">{meal.name}</h3>
-                        <p className="text-sm text-textMuted mt-1">{meal.description}</p>
-                      </div>
-                      <div className="flex items-center gap-4 bg-background px-4 py-2 rounded-xl border border-panelBorder shrink-0">
-                        <div className="text-center">
-                          <div className="text-[10px] text-textMuted font-medium uppercase">Kcal</div>
-                          <div className="font-bold text-textMain text-sm">{meal.calories}</div>
-                        </div>
-                        <div className="w-px h-8 bg-panelBorder"></div>
-                        <div className="text-center">
-                          <div className="text-[10px] text-textMuted font-medium uppercase">Pro</div>
-                          <div className="font-bold text-blue-500 text-sm">{meal.protein}g</div>
-                        </div>
-                        <div className="w-px h-8 bg-panelBorder"></div>
-                        <div className="text-center">
-                          <div className="text-[10px] text-textMuted font-medium uppercase">Carb</div>
-                          <div className="font-bold text-green-500 text-sm">{meal.carbs}g</div>
-                        </div>
-                        <div className="w-px h-8 bg-panelBorder"></div>
-                        <div className="text-center">
-                          <div className="text-[10px] text-textMuted font-medium uppercase">Fat</div>
-                          <div className="font-bold text-yellow-500 text-sm">{meal.fat}g</div>
-                        </div>
+                    <div>
+                      <h4 className="font-bold text-textHeading text-sm">{details.title}</h4>
+                      <div className="flex items-center gap-3 text-xs text-textMuted mt-1">
+                        <span className="flex items-center gap-1">
+                          🔥 {dayPlan.totalCalories || 1800} kcal
+                        </span>
+                        <span>•</span>
+                        <span>🍴 {details.count}</span>
                       </div>
                     </div>
                   </div>
-                ))}
+
+                  {active ? (
+                    <div className="w-6 h-6 rounded-full bg-[#EBF2EB] border border-[#D4E6D5] flex items-center justify-center text-[#2C3E2B] text-xs font-bold">
+                      ✓
+                    </div>
+                  ) : (
+                    <span className="text-textMuted text-lg font-bold pr-2">&gt;</span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Right Column (Meals detail & Pro tip) */}
+        <div className="space-y-6">
+          <div className="flex justify-between items-end mb-2">
+            <h2 className="text-xl font-bold text-textHeading">{selectedDay}'s Meals</h2>
+            <span className="text-xs font-bold text-textMuted">Oct 24</span>
+          </div>
+
+          <div className="space-y-6">
+            {activePlan.meals && activePlan.meals.length > 0 ? (
+              activePlan.meals.map((meal, idx) => (
+                <div 
+                  key={idx} 
+                  className="bg-white border border-border rounded-[24px] p-4 flex gap-4 hover:shadow-md transition-shadow relative"
+                >
+                  {/* Meal Thumbnail */}
+                  <img 
+                    src={getMealImage(meal.name)} 
+                    alt={meal.name} 
+                    className="w-24 h-24 rounded-2xl object-cover shrink-0"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex justify-between items-start">
+                      <div className="flex items-center gap-2">
+                        <span className="px-2 py-0.5 rounded bg-[#F5F6F1] text-textMuted text-[10px] font-bold uppercase">{meal.type}</span>
+                        <span className="text-xs text-textMuted font-semibold">
+                          {meal.type.toLowerCase().includes("breakfast") ? "08:00 AM" : meal.type.toLowerCase().includes("lunch") ? "01:00 PM" : "07:30 PM"}
+                        </span>
+                      </div>
+                      <button className="text-textMuted hover:text-textHeading text-base leading-none">⋮</button>
+                    </div>
+
+                    <h3 className="font-bold text-textHeading text-base mt-1.5 truncate">{meal.name}</h3>
+                    <p className="text-xs text-textMuted mt-1 leading-relaxed line-clamp-1">{meal.description}</p>
+                    
+                    {/* Macros info */}
+                    <div className="flex items-center gap-4 text-xs font-semibold mt-3 text-textMuted">
+                      <span className="flex items-center gap-1">
+                        <span className="w-2 h-2 rounded-full bg-[#9DB89F]"></span> {meal.protein}g protein
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <span className="w-2 h-2 rounded-full bg-[#E8815A]"></span> {meal.carbs}g carbs
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="text-center py-12 bg-white rounded-[24px] border border-border text-textMuted text-sm font-medium">
+                No meals planned for {selectedDay}.
               </div>
-            </div>
-          )}
-        </>
-      )}
+            )}
+
+            {/* Pro Tip Card */}
+            <section className="bg-[#EBF2EB] border border-[#D4E6D5] rounded-[24px] p-6 shadow-sm flex gap-3.5 items-start">
+              <span className="text-xl text-[#2C3E2B] mt-0.5">💡</span>
+              <div>
+                <h4 className="font-bold text-[#2C3E2B] text-sm">Pro Tip: Hydration</h4>
+                <p className="text-xs text-textBody leading-relaxed mt-1">
+                  Drinking 500ml of water before your lunch can help boost metabolism and digestion.
+                </p>
+              </div>
+            </section>
+          </div>
+        </div>
+      </main>
 
       <GroceryListModal 
         isOpen={isGroceryOpen} 

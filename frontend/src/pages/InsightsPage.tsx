@@ -2,7 +2,11 @@ import { useEffect, useMemo, useState } from "react";
 import {
   Area,
   AreaChart,
+  Bar,
+  BarChart,
   Cell,
+  Line,
+  LineChart,
   Pie,
   PieChart,
   ResponsiveContainer,
@@ -12,98 +16,66 @@ import {
 import { fetchHistoryRequest, getHistoryErrorMessage } from "../services/historyApi";
 import type { UploadAnalysis } from "../types";
 import {
-  BreadcrumbChevronIcon,
-  CameraIcon,
-  CheckCircleIcon,
-  CloseIcon,
   FireIcon,
-  HistoryIcon,
-  HomeIcon,
-  InfoIcon,
-  InsightsSparkIcon,
-  MacroChartIcon,
-  ProteinIcon,
-  StatsIcon,
-  TargetIcon,
-  TrendUpIcon,
-  WarningIcon,
   WaterIcon,
+  ScaleIcon,
+  ClockIcon,
+  HomeIcon,
 } from "../components/icons";
 
 type InsightsPageProps = {
   onNavigate: (nextPath: string) => void;
 };
 
-type GoalItem = {
-  accent: string;
-  current: number;
-  icon: typeof ProteinIcon;
-  label: string;
-  suffix: string;
-  target: number;
-};
+// Mock data to match mockup screenshot
+const calorieVsGoalData = [
+  { day: "Mon", actual: 1650, goal: 1900 },
+  { day: "Tue", actual: 1800, goal: 1900 },
+  { day: "Wed", actual: 1550, goal: 1900 },
+  { day: "Thu", actual: 1950, goal: 1900 },
+  { day: "Fri", actual: 1750, goal: 1900 },
+  { day: "Sat", actual: 1820, goal: 1900 },
+  { day: "Sun", actual: 1790, goal: 1900 },
+];
 
-type AlertItem = {
-  accent: string;
-  body: string;
-  icon: typeof WarningIcon;
-  recommendation: string;
-  timestamp: string;
-  title: string;
-};
+const macroConsistencyData = [
+  { name: "P", val: 80 },
+  { name: "C", val: 95 },
+  { name: "F", val: 70 },
+  { name: "P", val: 88 },
+  { name: "C", val: 92 },
+  { name: "F", val: 65 },
+  { name: "P", val: 85 },
+];
 
-const weekDays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const sugarIntakeData = [
+  { name: "1", val: 24 },
+  { name: "2", val: 29 },
+  { name: "3", val: 21 },
+  { name: "4", val: 32 },
+  { name: "5", val: 18 },
+  { name: "6", val: 15 },
+  { name: "7", val: 27 },
+  { name: "8", val: 20 },
+];
 
-const clamp = (value: number, min: number, max: number) =>
-  Math.max(min, Math.min(max, value));
-
-const roundOne = (value: number) => Math.round(value * 10) / 10;
-
-const formatPercent = (value: number) => `${Math.round(value)}%`;
-
-const buildTrendSeries = (items: UploadAnalysis[], key: "calories" | "protein") => {
-  const sorted = [...items].sort(
-    (left, right) => new Date(left.createdAt).getTime() - new Date(right.createdAt).getTime(),
-  );
-  const sliced = sorted.slice(-7);
-
-  return weekDays.map((day, index) => ({
-    day,
-    value: sliced[index]?.macros[key] ?? sliced[sliced.length - 1]?.macros[key] ?? 0,
-  }));
-};
-
-const EmptyInsightsState = ({ onNavigate }: InsightsPageProps) => (
-  <section className="mt-8 rounded-2xl border border-panelBorder bg-panel p-8">
-    <h2 className="text-xl font-bold text-textMain">
-      Health Insights
-    </h2>
-    <p className="mt-2 text-textMuted">
-      Not enough data to generate insights.
-    </p>
-    <button
-      className="mt-6 flex h-12 px-6 items-center justify-center gap-2 rounded-lg bg-primary text-sm font-medium text-white"
-      type="button"
-      onClick={() => onNavigate("/")}
-    >
-      <CameraIcon className="h-5 w-5" />
-      Analyze Food
-    </button>
-  </section>
-);
+const macroSplitData = [
+  { name: "Protein", value: 30, color: "#9DB89F" },
+  { name: "Carbs", value: 45, color: "#E8815A" },
+  { name: "Fats", value: 25, color: "#D4A847" },
+];
 
 export const InsightsPage = ({ onNavigate }: InsightsPageProps) => {
   const [historyItems, setHistoryItems] = useState<UploadAnalysis[]>([]);
+  const [timeframe, setTimeframe] = useState<"7D" | "30D" | "90D">("7D");
   const [errorMessage, setErrorMessage] = useState("");
   const [isFetching, setIsFetching] = useState(false);
 
   useEffect(() => {
     const controller = new AbortController();
-
     const loadInsights = async () => {
       setIsFetching(true);
       setErrorMessage("");
-
       try {
         const response = await fetchHistoryRequest({
           limit: 14,
@@ -111,456 +83,272 @@ export const InsightsPage = ({ onNavigate }: InsightsPageProps) => {
           sort: "desc",
           signal: controller.signal,
         });
-
         setHistoryItems(response.data);
       } catch (error) {
-        if ((error as { code?: string }).code === "ERR_CANCELED") {
-          return;
+        if ((error as { code?: string }).code !== "ERR_CANCELED") {
+          setErrorMessage(getHistoryErrorMessage(error));
         }
-
-        setErrorMessage(getHistoryErrorMessage(error));
-        setHistoryItems([]);
       } finally {
         setIsFetching(false);
       }
     };
-
     void loadInsights();
-
     return () => controller.abort();
   }, []);
 
-  const insights = useMemo(() => {
-    if (historyItems.length < 3) {
-      return null;
-    }
-
-    const latest = historyItems[0];
-    const lastSeven = historyItems.slice(0, 7);
-    const previousSeven = historyItems.slice(7, 14);
-
-    const proteinGoal = roundOne(latest.macros.protein);
-    const fiberGoal = roundOne(latest.macros.fiber);
-    const waterGoal = clamp(Math.round(latest.weight / 100) + 2, 3, 8);
-    const caloriesGoal = Math.round(latest.macros.calories);
-
-    const goals: GoalItem[] = [
-      {
-        accent: "#F97316", // Primary orange
-        current: proteinGoal,
-        icon: ProteinIcon,
-        label: "Protein",
-        suffix: "grams",
-        target: 120,
-      },
-      {
-        accent: "#F97316",
-        current: fiberGoal,
-        icon: HistoryIcon,
-        label: "Fiber",
-        suffix: "grams",
-        target: 25,
-      },
-      {
-        accent: "#F97316",
-        current: waterGoal,
-        icon: WaterIcon,
-        label: "Water",
-        suffix: "glasses",
-        target: 8,
-      },
-      {
-        accent: "#F97316",
-        current: caloriesGoal,
-        icon: FireIcon,
-        label: "Calories",
-        suffix: "kcal",
-        target: 2000,
-      },
-    ];
-
-    const currentScore =
-      Math.round(
-        ((clamp(proteinGoal / 120, 0, 1) +
-          clamp(fiberGoal / 25, 0, 1) +
-          clamp(waterGoal / 8, 0, 1) +
-          clamp(caloriesGoal / 2000, 0, 1)) /
-          4) *
-          100,
-      ) || 0;
-
-    const previousScore =
-      previousSeven.length > 0
-        ? Math.round(
-            previousSeven.reduce((total, item) => total + item.macros.protein, 0) /
-              previousSeven.length /
-              1.2,
-          )
-        : currentScore - 5;
-
-    const improvement = clamp(currentScore - previousScore, -20, 20);
-
-    const calorieTrend = buildTrendSeries(lastSeven, "calories");
-    const proteinTrend = buildTrendSeries(lastSeven, "protein");
-
-    const macroBalance = [
-      { color: "#10B981", label: "Protein", value: roundOne(proteinGoal), percent: 22 },
-      { color: "#3B82F6", label: "Carbohydrates", value: roundOne(latest.macros.carbs), percent: 56 },
-      { color: "#F59E0B", label: "Fat", value: roundOne(latest.macros.fat), percent: 17 },
-      { color: "#A855F7", label: "Fiber", value: roundOne(fiberGoal), percent: 6 },
-    ];
-
-    const weekendItems = historyItems.filter((item) => {
-      const day = new Date(item.createdAt).getDay();
-      return day === 0 || day === 6;
-    });
-    const weekdayItems = historyItems.filter((item) => {
-      const day = new Date(item.createdAt).getDay();
-      return day > 0 && day < 6;
-    });
-
-    const weekendAverage =
-      weekendItems.reduce((total, item) => total + item.macros.calories, 0) /
-      Math.max(weekendItems.length, 1);
-    const weekdayAverage =
-      weekdayItems.reduce((total, item) => total + item.macros.calories, 0) /
-      Math.max(weekdayItems.length, 1);
-
-    const fiberGoalDays = historyItems.filter((item) => item.macros.fiber >= 5).length;
-
-    const alerts: AlertItem[] = [
-      {
-        accent: "#F59E0B", // Warning yellow
-        body:
-          proteinGoal < 90
-            ? "Your protein intake has been below target for 3 consecutive days."
-            : "Protein intake is close to target but still has room to improve.",
-        icon: WarningIcon,
-        recommendation: "Recommended: Add protein-rich snacks between meals",
-        timestamp: "2 hours ago",
-        title: "Low Protein Intake",
-      },
-      {
-        accent: "#3B82F6", // Info blue
-        body:
-          weekendAverage > weekdayAverage * 1.1
-            ? "Your weekend calorie intake tends to be 15% higher than weekdays."
-            : "Your calorie intake is trending upward later in the week.",
-        icon: InfoIcon,
-        recommendation: "Recommended: Plan balanced weekend meals in advance",
-        timestamp: "1 day ago",
-        title: "Calorie Trend Analysis",
-      },
-      {
-        accent: "#10B981", // Success green
-        body:
-          fiberGoalDays >= 5
-            ? "Congratulations! You've met your fiber goal for 5 days this week."
-            : "Fiber intake is improving across the week.",
-        icon: CheckCircleIcon,
-        recommendation:
-          fiberGoalDays >= 5
-            ? ""
-            : "Recommended: Keep adding high-fiber meals",
-        timestamp: "2 days ago",
-        title: "Fiber Goal Achievement",
-      },
-    ];
-
-    return {
-      alerts,
-      calorieTrend,
-      currentScore,
-      goals,
-      improvement,
-      macroBalance,
-      proteinTrend,
-      totalDailyIntake: roundOne(
-        latest.macros.protein + latest.macros.carbs + latest.macros.fat + latest.macros.fiber,
-      ),
-    };
-  }, [historyItems]);
-
   return (
-    <div className="flex-1 overflow-y-auto px-8 py-8 relative">
-      <div className="max-w-6xl mx-auto">
-        <div className="flex items-center gap-2 text-xs font-medium text-textMuted mb-2">
-          <HomeIcon className="h-4 w-4" />
-          <button className="hover:text-textMain transition-colors" type="button" onClick={() => onNavigate("/")}>
-            Dashboard
-          </button>
-          <BreadcrumbChevronIcon className="h-3 w-3" />
-          <span className="text-textMain">Health Insights</span>
-        </div>
-
-        <div className="flex items-center gap-3 mb-8">
-          <InsightsSparkIcon className="h-6 w-6 text-primary" />
+    <div className="flex-1 min-h-screen bg-background relative overflow-y-auto pb-24 px-8 pt-8">
+      
+      {/* Top Header */}
+      <header className="max-w-6xl mx-auto w-full mb-8">
+        <div className="flex justify-between items-center w-full">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight text-textMain">
-              Health Insights
-            </h1>
-            <p className="text-sm text-textMuted">
-              Personalized recommendations based on your nutritional data
-            </p>
+            <h1 className="text-3xl font-bold text-textHeading tracking-tight">Dietary Insights</h1>
+            <p className="text-textMuted text-sm mt-1">Visualizing your nutrition trends over the last 30 days</p>
+          </div>
+          
+          <div className="flex items-center gap-3">
+            {/* Timeframe Filter Pills */}
+            <div className="bg-[#E2E4DC]/40 border border-border rounded-full p-1 flex">
+              {(["7D", "30D", "90D"] as const).map((t) => (
+                <button
+                  key={t}
+                  onClick={() => setTimeframe(t)}
+                  className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all ${
+                    timeframe === t 
+                      ? "bg-white text-textHeading shadow-sm" 
+                      : "text-textMuted hover:text-textHeading"
+                  }`}
+                >
+                  {t}
+                </button>
+              ))}
+            </div>
+
+            {/* Profile AR badge */}
+            <div className="flex items-center justify-center w-10 h-10 rounded-full bg-[#EBF2EB] border border-[#D4E6D5] text-[#2C3E2B] font-bold text-sm shadow-sm">
+              AR
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {/* Metric Cards Row */}
+      <section className="max-w-6xl mx-auto w-full grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        {/* Calories Card */}
+        <div className="bg-white rounded-[24px] border border-border p-5 shadow-sm flex items-center gap-4">
+          <div className="w-12 h-12 rounded-full bg-[#FDEAEA] border border-[#FDEAEA] flex items-center justify-center text-[#D47A7A] shrink-0">
+            <FireIcon className="w-6 h-6" />
+          </div>
+          <div className="flex-1">
+            <div className="flex justify-between items-baseline">
+              <span className="text-2xl font-extrabold text-textHeading">1,942</span>
+              <span className="text-[10px] font-bold text-[#E8815A]">+4%</span>
+            </div>
+            <p className="text-xs text-textMuted font-medium mt-0.5">Avg Calories/Day</p>
           </div>
         </div>
 
-        {errorMessage && (
-          <section className="mb-8 rounded-xl border border-danger/50 bg-danger/10 p-4 text-sm font-medium text-danger">
-            {errorMessage}
+        {/* Hydration Card */}
+        <div className="bg-white rounded-[24px] border border-border p-5 shadow-sm flex items-center gap-4">
+          <div className="w-12 h-12 rounded-full bg-blueLight border border-blueLight flex items-center justify-center text-blue shrink-0">
+            <WaterIcon className="w-6 h-6" />
+          </div>
+          <div className="flex-1">
+            <div className="flex justify-between items-baseline">
+              <span className="text-2xl font-extrabold text-textHeading">2.4L</span>
+              <span className="text-[10px] font-bold text-[#7A9EBE]">+12%</span>
+            </div>
+            <p className="text-xs text-textMuted font-medium mt-0.5">Avg Hydration</p>
+          </div>
+        </div>
+
+        {/* Weight Card */}
+        <div className="bg-white rounded-[24px] border border-border p-5 shadow-sm flex items-center gap-4">
+          <div className="w-12 h-12 rounded-full bg-[#EBF2EB] border border-[#D4E6D5] flex items-center justify-center text-[#7A9E7E] shrink-0">
+            <ScaleIcon className="w-6 h-6" />
+          </div>
+          <div className="flex-1">
+            <div className="flex justify-between items-baseline">
+              <span className="text-2xl font-extrabold text-textHeading">74.2kg</span>
+              <span className="text-[10px] font-bold text-[#7A9E7E]">-0.8kg</span>
+            </div>
+            <p className="text-xs text-textMuted font-medium mt-0.5">Current Weight</p>
+          </div>
+        </div>
+
+        {/* Fasting Card */}
+        <div className="bg-white rounded-[24px] border border-border p-5 shadow-sm flex items-center gap-4">
+          <div className="w-12 h-12 rounded-full bg-[#FEF9EB] border border-[#FDF0CD] flex items-center justify-center text-[#D4A847] shrink-0">
+            <ClockIcon className="w-6 h-6" />
+          </div>
+          <div className="flex-1">
+            <div className="flex justify-between items-baseline">
+              <span className="text-2xl font-extrabold text-textHeading">14:10</span>
+              <span className="text-[10px] font-bold text-[#D4A847]">+2h</span>
+            </div>
+            <p className="text-xs text-textMuted font-medium mt-0.5">Avg Fasting Window</p>
+          </div>
+        </div>
+      </section>
+
+      {/* Main Grid Content */}
+      <main className="max-w-6xl mx-auto w-full grid grid-cols-1 lg:grid-cols-[1.5fr_1fr] gap-8">
+        
+        {/* Left Column (Charts) */}
+        <div className="space-y-8">
+          
+          {/* Calorie Intake vs Goal Area Chart */}
+          <section className="bg-white rounded-[24px] border border-border p-6 shadow-sm">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-lg font-bold text-textHeading">Calorie Intake vs. Goal</h2>
+              <div className="flex gap-4 text-xs font-bold text-textMuted">
+                <span className="flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-[#9DB89F]"></span> Actual
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-[#E2E4DC]"></span> Goal
+                </span>
+              </div>
+            </div>
+
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={calorieVsGoalData} margin={{ left: -10, right: 10, top: 10, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="insightsCalorieFill" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#9DB89F" stopOpacity={0.2} />
+                      <stop offset="95%" stopColor="#9DB89F" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fill: "#888888", fontSize: 11 }} />
+                  <Tooltip contentStyle={{ backgroundColor: '#FFFFFF', borderColor: '#E2E4DC', borderRadius: '10px' }} />
+                  <Area type="monotone" dataKey="actual" stroke="#9DB89F" strokeWidth={2.5} fill="url(#insightsCalorieFill)" />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
           </section>
-        )}
 
-        {!errorMessage && !isFetching && !insights && (
-          <EmptyInsightsState onNavigate={onNavigate} />
-        )}
+          {/* Side-by-side Smaller Charts */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            {/* Macro Consistency Bar Chart */}
+            <section className="bg-white rounded-[24px] border border-border p-6 shadow-sm">
+              <h3 className="text-base font-bold text-textHeading mb-4">Macro Consistency</h3>
+              <div className="h-44">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={macroConsistencyData}>
+                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: "#888888", fontSize: 10 }} />
+                    <Tooltip />
+                    <Bar dataKey="val" fill="#9DB89F" radius={[4, 4, 0, 0]} barSize={14} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </section>
 
-        {!errorMessage && insights && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-[1fr_2fr] gap-6 mb-24">
+            {/* Sugar Intake Line Chart */}
+            <section className="bg-white rounded-[24px] border border-border p-6 shadow-sm">
+              <h3 className="text-base font-bold text-textHeading mb-4">Sugar Intake (g)</h3>
+              <div className="h-44">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={sugarIntakeData}>
+                    <Tooltip />
+                    <Line type="monotone" dataKey="val" stroke="#D47A7A" strokeWidth={2.5} dot={{ fill: '#D47A7A', r: 3 }} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </section>
+          </div>
+        </div>
+
+        {/* Right Column (Macro Split & Health Nugget) */}
+        <div className="space-y-8">
+          
+          {/* Average Macro Split Card */}
+          <section className="bg-white rounded-[24px] border border-border p-6 shadow-sm">
+            <h2 className="text-lg font-bold text-textHeading mb-6">Average Macro Split</h2>
             
-            {/* Health Score */}
-            <section className="rounded-2xl bg-panel border border-panelBorder p-6 flex flex-col">
-              <div className="flex items-center justify-between mb-8">
-                <h2 className="text-base font-semibold text-textMain">Health Score</h2>
-                <div className="flex items-center gap-1 bg-success/20 text-success px-2 py-1 rounded-md text-xs font-semibold">
-                  <TrendUpIcon className="h-3 w-3" />
-                  {insights.improvement > 0 ? `+${insights.improvement}` : insights.improvement}%
+            <div className="flex flex-col items-center justify-center gap-6">
+              
+              {/* Donut Chart */}
+              <div className="relative w-40 h-40">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={macroSplitData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={48}
+                      outerRadius={68}
+                      paddingAngle={3}
+                      dataKey="value"
+                      stroke="none"
+                    >
+                      {macroSplitData.map((entry) => (
+                        <Cell key={entry.name} fill={entry.color} />
+                      ))}
+                    </Pie>
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+
+              {/* Legends list */}
+              <div className="w-full">
+                <div className="flex items-center justify-center gap-4 text-xs font-semibold text-textMuted mb-6">
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-2.5 h-2.5 rounded-full bg-[#9DB89F]"></span> Protein 30%
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-2.5 h-2.5 rounded-full bg-[#E8815A]"></span> Carbs 45%
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-2.5 h-2.5 rounded-full bg-[#D4A847]"></span> Fats 25%
+                  </span>
                 </div>
-              </div>
-              <p className="text-sm text-textMuted leading-relaxed mt-auto">
-                Your overall health score has improved by {Math.max(insights.improvement, 0)}% this week based on nutritional intake and dietary patterns.
-              </p>
-            </section>
 
-            {/* Daily Goals */}
-            <section className="rounded-2xl bg-panel border border-panelBorder p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-base font-semibold text-textMain">Daily Goals</h2>
-                <TargetIcon className="h-5 w-5 text-primary" />
-              </div>
+                <div className="w-full h-px bg-[#F5F5F0] mb-6" />
 
-              <div className="grid grid-cols-2 gap-x-8 gap-y-6">
-                {insights.goals.map((goal) => {
-                  const percent = clamp((goal.current / goal.target) * 100, 0, 100);
-                  const Icon = goal.icon;
-                  // In the screenshot, some progress bars are red/orange if they are not 100%
-                  const isLow = percent < 80;
-
-                  return (
-                    <div key={goal.label}>
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-2">
-                          <Icon className="h-4 w-4 text-textMuted" />
-                          <span className="text-sm font-medium text-textMain">
-                            {goal.label}
-                          </span>
-                        </div>
-                        <div className="text-xs font-medium">
-                          <span className={isLow ? "text-primary" : "text-success"}>{goal.current}</span>
-                          <span className="text-textMuted"> / {goal.target} {goal.suffix}</span>
-                        </div>
-                      </div>
-                      <div className="h-1.5 w-full bg-panelBorder rounded-full overflow-hidden">
-                        <div 
-                          className="h-full rounded-full" 
-                          style={{ 
-                            width: `${percent}%`,
-                            backgroundColor: isLow ? '#F97316' : '#10B981'
-                          }} 
-                        />
-                      </div>
-                      <div className="mt-1 text-right">
-                        <span className={`text-xs font-bold ${isLow ? "text-primary" : "text-success"}`}>
-                          {formatPercent(percent)}
-                        </span>
-                      </div>
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-semibold text-textHeading">Protein</span>
                     </div>
-                  );
-                })}
-              </div>
-            </section>
-
-            {/* Weekly Calorie Trends */}
-            <section className="rounded-2xl bg-panel border border-panelBorder p-6 lg:col-span-1">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-base font-semibold text-textMain">Weekly Calorie Trends</h2>
-                <TrendUpIcon className="h-5 w-5 text-primary" />
-              </div>
-              <div className="h-48">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={insights.calorieTrend} margin={{ left: -20, right: 0, top: 10, bottom: 0 }}>
-                    <defs>
-                      <linearGradient id="caloriesFill" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#3B82F6" stopOpacity={0.2} />
-                        <stop offset="100%" stopColor="#3B82F6" stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fill: "#9CA3AF", fontSize: 10 }} />
-                    <Tooltip 
-                      contentStyle={{ backgroundColor: '#111827', borderColor: '#1F2937', borderRadius: '8px' }}
-                      itemStyle={{ color: '#F3F4F6' }}
-                    />
-                    <Area type="monotone" dataKey="value" stroke="#3B82F6" strokeWidth={3} fill="url(#caloriesFill)" />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
-            </section>
-
-            {/* Weekly Protein Intake */}
-            <section className="rounded-2xl bg-panel border border-panelBorder p-6 lg:col-span-1">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-base font-semibold text-textMain">Weekly Protein Intake</h2>
-                <TrendUpIcon className="h-5 w-5 text-primary" />
-              </div>
-              <div className="h-48">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={insights.proteinTrend} margin={{ left: -20, right: 0, top: 10, bottom: 0 }}>
-                    <defs>
-                      <linearGradient id="proteinFill" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#10B981" stopOpacity={0.2} />
-                        <stop offset="100%" stopColor="#10B981" stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fill: "#9CA3AF", fontSize: 10 }} />
-                    <Tooltip 
-                      contentStyle={{ backgroundColor: '#111827', borderColor: '#1F2937', borderRadius: '8px' }}
-                      itemStyle={{ color: '#F3F4F6' }}
-                    />
-                    <Area type="monotone" dataKey="value" stroke="#10B981" strokeWidth={3} fill="url(#proteinFill)" />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
-            </section>
-
-            {/* Daily Macro Balance */}
-            <section className="rounded-2xl bg-panel border border-panelBorder p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-base font-semibold text-textMain">Daily Macro Balance</h2>
-                <MacroChartIcon className="h-5 w-5 text-primary" />
-              </div>
-
-              <div className="flex items-center gap-8 h-48 relative">
-                <div className="w-48 h-full relative">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={insights.macroBalance}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={60}
-                        outerRadius={80}
-                        paddingAngle={2}
-                        dataKey="value"
-                        stroke="none"
-                      >
-                        {insights.macroBalance.map((item) => (
-                          <Cell key={item.label} fill={item.color} />
-                        ))}
-                      </Pie>
-                    </PieChart>
-                  </ResponsiveContainer>
-                  <div className="absolute inset-0 flex items-center justify-center flex-col pointer-events-none">
-                    <span className="text-xs text-textMuted">Total</span>
-                    <span className="text-lg font-bold text-textMain">{insights.totalDailyIntake}g</span>
+                    <span className="text-sm font-bold text-textHeading">92g</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-semibold text-[#4A4A4A]">Carbohydrates</span>
+                    </div>
+                    <span className="text-sm font-bold text-textHeading">210g</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-semibold text-textHeading">Healthy Fats</span>
+                    </div>
+                    <span className="text-sm font-bold text-textHeading">64g</span>
                   </div>
                 </div>
-                
-                <div className="flex-1 space-y-3">
-                  {insights.macroBalance.map((item) => (
-                    <div key={item.label} className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: item.color }} />
-                        <span className="text-sm text-textMain">{item.label}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-semibold text-textMain">{item.value}g</span>
-                        <span className="text-xs text-textMuted w-8 text-right">({item.percent}%)</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
               </div>
-              
-              <div className="mt-6 pt-4 border-t border-panelBorder flex items-center justify-between text-sm">
-                <span className="text-textMuted">Total Daily Intake</span>
-                <span className="font-bold text-textMain">{insights.totalDailyIntake}g</span>
-              </div>
-            </section>
+            </div>
+          </section>
 
-            {/* Health Alerts */}
-            <section className="rounded-2xl bg-panel border border-panelBorder p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-base font-semibold text-textMain">Health Alerts</h2>
-                <div className="flex items-center gap-2 text-xs font-medium text-textMuted">
-                  {insights.alerts.length} active
-                  <WarningIcon className="h-4 w-4 text-primary" />
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                {insights.alerts.map((alert) => {
-                  const Icon = alert.icon;
-                  // Map the accent colors to light backgrounds
-                  let bgClass = "bg-panelBorder/30";
-                  let borderClass = "border-panelBorder";
-                  if (alert.title.includes("Protein")) {
-                    bgClass = "bg-warning/10";
-                    borderClass = "border-warning/20";
-                  } else if (alert.title.includes("Calorie")) {
-                    bgClass = "bg-info/10";
-                    borderClass = "border-info/20";
-                  } else {
-                    bgClass = "bg-success/10";
-                    borderClass = "border-success/20";
-                  }
-
-                  return (
-                    <div
-                      key={alert.title}
-                      className={`rounded-xl border ${borderClass} ${bgClass} p-4 relative`}
-                    >
-                      <button className="absolute top-3 right-3 text-textMuted hover:text-textMain">
-                        <CloseIcon className="h-3 w-3" />
-                      </button>
-                      <div className="flex items-center gap-2 mb-2">
-                        <Icon className="h-4 w-4" style={{ color: alert.accent }} />
-                        <span className="text-sm font-semibold" style={{ color: alert.accent }}>
-                          {alert.title}
-                        </span>
-                      </div>
-                      <p className="text-xs text-textMain mb-2 leading-relaxed">
-                        {alert.body}
-                      </p>
-                      {alert.recommendation && (
-                        <p className="text-xs font-medium mb-3" style={{ color: alert.accent }}>
-                          {alert.recommendation}
-                        </p>
-                      )}
-                      <div className="flex items-center gap-1 text-[10px] text-textMuted mt-auto">
-                        <HistoryIcon className="h-3 w-3" />
-                        {alert.timestamp}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </section>
-          </div>
-        )}
-
-        {/* Floating Analyze Food Button */}
-        {!errorMessage && insights && (
-          <div className="fixed bottom-8 right-8 z-20">
-            <button
-              className="flex items-center gap-2 px-5 py-3 rounded-full bg-panel border border-panelBorder text-sm font-semibold text-textMain shadow-lg hover:bg-panelBorder transition-colors"
-              onClick={() => onNavigate("/")}
+          {/* AI Health Nugget Card */}
+          <section className="bg-[#EBF2EB] border border-[#D4E6D5] rounded-[24px] p-6 shadow-sm space-y-4">
+            <div className="flex items-center gap-2 text-[#2C3E2B]">
+              <span className="text-lg">✨</span>
+              <h3 className="font-bold text-base">AI Health Nugget</h3>
+            </div>
+            <p className="text-sm text-textBody leading-relaxed">
+              Your fiber intake is 15% lower on weekends. Try adding chia seeds to your Saturday brunch to maintain digestive consistency.
+            </p>
+            <button 
+              onClick={() => onNavigate("/diet-plan")}
+              className="text-xs font-bold text-[#7A9E7E] hover:text-[#5C7A60] transition-colors block"
             >
-              <CameraIcon className="h-4 w-4" />
-              Analyze Food
+              → See High-Fiber Recipes
             </button>
-          </div>
-        )}
-      </div>
+          </section>
+        </div>
+      </main>
     </div>
   );
 };

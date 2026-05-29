@@ -75,9 +75,9 @@ export const ProgressTracker = ({ onWeightUpdate }: { onWeightUpdate?: () => voi
 
   return (
     <div className="space-y-8">
-      <div className="bg-panel border border-panelBorder rounded-3xl p-6 lg:p-8">
-        <h2 className="text-xl font-bold text-textMain mb-6 flex items-center gap-2">
-          <ScaleIcon className="w-6 h-6 text-primary" />
+      <div className="bg-white border border-border rounded-[24px] p-6 lg:p-8 shadow-sm">
+        <h2 className="text-xl font-bold text-textHeading mb-6 flex items-center gap-2">
+          <ScaleIcon className="w-6 h-6 text-[#7A9E7E]" />
           Weight Progression
         </h2>
         
@@ -90,43 +90,43 @@ export const ProgressTracker = ({ onWeightUpdate }: { onWeightUpdate?: () => voi
                 <Line 
                   type="monotone" 
                   dataKey="weight" 
-                  stroke="#FF7A12" 
+                  stroke="#7A9E7E" 
                   strokeWidth={3}
-                  dot={{ fill: "#FF7A12", strokeWidth: 2, r: 4 }}
+                  dot={{ fill: "#7A9E7E", strokeWidth: 2, r: 4 }}
                   activeDot={{ r: 6 }}
                 />
-                <XAxis dataKey="name" stroke="#64748B" fontSize={12} tickLine={false} axisLine={false} dy={10} />
-                <YAxis domain={["dataMin - 2", "dataMax + 2"]} stroke="#64748B" fontSize={12} tickLine={false} axisLine={false} dx={-10} />
+                <XAxis dataKey="name" stroke="#888888" fontSize={11} tickLine={false} axisLine={false} dy={10} />
+                <YAxis domain={["dataMin - 2", "dataMax + 2"]} stroke="#888888" fontSize={11} tickLine={false} axisLine={false} dx={-10} />
                 <Tooltip 
-                  contentStyle={{ backgroundColor: "#191F2B", borderColor: "#2D3748", borderRadius: "12px", color: "#F8FAFF" }}
-                  itemStyle={{ color: "#FF7A12", fontWeight: "bold" }}
+                  contentStyle={{ backgroundColor: "#FFFFFF", borderColor: "#E2E4DC", borderRadius: "12px", color: "#2C2C2C" }}
+                  itemStyle={{ color: "#7A9E7E", fontWeight: "bold" }}
                 />
               </LineChart>
             </ResponsiveContainer>
           </div>
         ) : (
-          <div className="h-64 flex items-center justify-center text-textMuted border border-dashed border-panelBorder rounded-2xl">
+          <div className="h-64 flex items-center justify-center text-textMuted border border-dashed border-border rounded-2xl">
             No weight data logged yet
           </div>
         )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-1 bg-panel border border-panelBorder rounded-3xl p-6">
-          <h3 className="text-lg font-bold text-textMain mb-4">Log Progress</h3>
+        <div className="lg:col-span-1 bg-white border border-border rounded-[24px] p-6 shadow-sm">
+          <h3 className="text-lg font-bold text-textHeading mb-4">Log Progress</h3>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-textMuted mb-1">Date</label>
+              <label className="block text-xs font-semibold text-textMuted mb-1">Date</label>
               <input 
                 type="date" 
                 value={date}
                 onChange={e => setDate(e.target.value)}
                 required
-                className="w-full bg-background border border-panelBorder rounded-xl px-4 py-2.5 text-textMain focus:border-primary focus:outline-none"
+                className="w-full bg-background border border-border rounded-xl px-4 py-2.5 text-textHeading focus:border-[#7A9E7E] focus:outline-none text-sm"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-textMuted mb-1">Weight (kg)</label>
+              <label className="block text-xs font-semibold text-textMuted mb-1">Weight (kg)</label>
               <input 
                 type="number" 
                 step="0.1"
@@ -134,12 +134,12 @@ export const ProgressTracker = ({ onWeightUpdate }: { onWeightUpdate?: () => voi
                 onChange={e => setWeight(e.target.value)}
                 required
                 placeholder="e.g. 75.5"
-                className="w-full bg-background border border-panelBorder rounded-xl px-4 py-2.5 text-textMain focus:border-primary focus:outline-none"
+                className="w-full bg-background border border-border rounded-xl px-4 py-2.5 text-textHeading focus:border-[#7A9E7E] focus:outline-none text-sm"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-textMuted mb-1">Progress Photo (Optional)</label>
-              <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-panelBorder rounded-xl cursor-pointer hover:border-primary/50 hover:bg-background/50 transition-colors overflow-hidden relative">
+              <label className="block text-xs font-semibold text-textMuted mb-1">Progress Photo (Optional)</label>
+              <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-border rounded-xl cursor-pointer hover:border-[#7A9E7E]/50 hover:bg-background/50 transition-colors overflow-hidden relative">
                 {previewUrl ? (
                   <img src={previewUrl} alt="Preview" className="w-full h-full object-cover" />
                 ) : (
@@ -154,22 +154,22 @@ export const ProgressTracker = ({ onWeightUpdate }: { onWeightUpdate?: () => voi
             <button 
               type="submit" 
               disabled={isUploading}
-              className="w-full bg-primary hover:bg-primaryHover text-white font-bold py-3 rounded-xl transition-colors disabled:opacity-50"
+              className="w-full bg-[#9DB89F] hover:bg-[#7A9E7E] text-white font-bold py-3 rounded-xl transition-colors disabled:opacity-50 text-sm shadow-sm"
             >
               {isUploading ? "Saving..." : "Save Entry"}
             </button>
           </form>
         </div>
 
-        <div className="lg:col-span-2 bg-panel border border-panelBorder rounded-3xl p-6">
-          <h3 className="text-lg font-bold text-textMain mb-4 flex items-center gap-2">
-            <CameraIcon className="w-5 h-5 text-primary" />
+        <div className="lg:col-span-2 bg-white border border-border rounded-[24px] p-6 shadow-sm">
+          <h3 className="text-lg font-bold text-textHeading mb-4 flex items-center gap-2">
+            <CameraIcon className="w-5 h-5 text-[#7A9E7E]" />
             Photo Gallery
           </h3>
           {photos.length > 0 ? (
             <div className="flex gap-4 overflow-x-auto pb-4 snap-x">
               {photos.map((log) => (
-                <div key={log._id} className="relative min-w-[200px] h-[300px] rounded-2xl overflow-hidden snap-center group border border-panelBorder">
+                <div key={log._id} className="relative min-w-[200px] h-[300px] rounded-2xl overflow-hidden snap-center group border border-border">
                   <img src={log.image_url!} alt="Progress" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                   <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4">
                     <div className="font-bold text-white">{log.weight_kg} kg</div>
@@ -179,7 +179,7 @@ export const ProgressTracker = ({ onWeightUpdate }: { onWeightUpdate?: () => voi
               ))}
             </div>
           ) : (
-            <div className="h-full min-h-[200px] flex items-center justify-center text-textMuted border border-dashed border-panelBorder rounded-2xl">
+            <div className="h-full min-h-[200px] flex items-center justify-center text-textMuted border border-dashed border-border rounded-2xl">
               Upload photos to see your transformation gallery
             </div>
           )}

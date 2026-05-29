@@ -1,25 +1,38 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState } from "react";
 import { UploadCard } from "../components/UploadCard";
-import { HydrationWidget } from "../components/HydrationWidget";
-import { GamificationWidget } from "../components/GamificationWidget";
 import { useUploadStore } from "../store/uploadStore";
-import { fetchProfileRequest, suggestMealsRequest } from "../services/profileApi";
-import { fetchHistoryRequest } from "../services/historyApi";
-import { SparklesIcon } from "../components/icons";
-import type { UserProfile, UploadAnalysis } from "../types";
+import { Area, AreaChart, ResponsiveContainer, XAxis, Tooltip } from "recharts";
+import { SearchIcon, FireIcon, WaterIcon, CameraIcon, SpinnerIcon, CloseIcon } from "../components/icons";
 
 type DashboardPageProps = {
   onUploadSuccess: () => void;
+  onNavigate?: (path: string) => void;
 };
 
-const featureItems = [
-  { label: "Food Detection", color: "#F97316" }, // primary
-  { label: "Volume Estimation", color: "#3B82F6" }, // info
-  { label: "Calorie Analysis", color: "#A855F7" }, // purple
-  { label: "Health Advice", color: "#10B981" }, // success
+// Mock data for calorie trend chart
+const calorieTrendData = [
+  { day: "M", calories: 1100 },
+  { day: "T", calories: 1250 },
+  { day: "W", calories: 1050 },
+  { day: "T", calories: 1180 },
+  { day: "F", calories: 1350 },
+  { day: "S", calories: 1200 },
+  { day: "S", calories: 1240 },
 ];
 
-export const DashboardPage = ({ onUploadSuccess }: DashboardPageProps) => {
+const CustomTooltip = ({ active, payload }: any) => {
+  if (active && payload && payload.length) {
+    return (
+      <div className="bg-white border border-border rounded-xl p-3 shadow-md">
+        <p className="text-[10px] text-textMuted font-bold uppercase tracking-wider">Calories logged</p>
+        <p className="text-sm font-extrabold text-textHeading mt-0.5">{payload[0].value} kcal</p>
+      </div>
+    );
+  }
+  return null;
+};
+
+export const DashboardPage = ({ onUploadSuccess, onNavigate }: DashboardPageProps) => {
   const cancelUpload = useUploadStore((state) => state.cancelUpload);
   const clearError = useUploadStore((state) => state.clearError);
   const dragActive = useUploadStore((state) => state.dragActive);
@@ -28,265 +41,281 @@ export const DashboardPage = ({ onUploadSuccess }: DashboardPageProps) => {
   const setDragActive = useUploadStore((state) => state.setDragActive);
   const uploadImage = useUploadStore((state) => state.uploadImage);
 
-  const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [todayHistory, setTodayHistory] = useState<UploadAnalysis[]>([]);
-  const [allHistory, setAllHistory] = useState<UploadAnalysis[]>([]);
-  const [isLoadingStats, setIsLoadingStats] = useState(true);
-  
-  // AI Advisor State
-  const [suggestions, setSuggestions] = useState<any[]>([]);
-  const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  const [hydrationML, setHydrationML] = useState(1800); // 1.8L
 
   useEffect(() => {
-    const controller = new AbortController();
-    
-    const loadData = async () => {
-      try {
-        setIsLoadingStats(true);
-        const [profileRes, historyRes] = await Promise.all([
-          fetchProfileRequest(controller.signal).catch(() => null),
-          fetchHistoryRequest({ limit: 50, signal: controller.signal }).catch(() => null)
-        ]);
-
-        if (profileRes?.data) setProfile(profileRes.data);
-        if (historyRes?.data) {
-          setAllHistory(historyRes.data);
-          const today = new Date().toISOString().split('T')[0];
-          const todaysMeals = historyRes.data.filter((item: UploadAnalysis) => item.createdAt.startsWith(today));
-          setTodayHistory(todaysMeals);
-        }
-      } finally {
-        setIsLoadingStats(false);
-      }
-    };
-    
-    void loadData();
     return () => {
-      controller.abort();
       cancelUpload();
     };
   }, [cancelUpload]);
 
-  const dailyCalories = useMemo(() => todayHistory.reduce((sum, item) => sum + item.macros.calories, 0), [todayHistory]);
-  const dailyProtein = useMemo(() => todayHistory.reduce((sum, item) => sum + item.macros.protein, 0), [todayHistory]);
-  
-  const targetCalories = profile?.maintenanceCalories || profile?.nutritionalTargets?.calories || 2000;
-  const progressPercent = Math.min(100, Math.round((dailyCalories / targetCalories) * 100));
-  const remainingCalories = Math.max(0, targetCalories - dailyCalories);
-  const remainingProtein = Math.max(0, 100 - dailyProtein); // assuming 100g target
-
-  // Calculate Calendar & Streak
-  const last7Days = useMemo(() => {
-    const days = [];
-    const today = new Date();
-    today.setHours(0, 0, 0, 0); // normalize today to midnight
-    
-    // Create a map of YYYY-MM-DD -> total calories
-    const dailyTotals: Record<string, number> = {};
-    allHistory.forEach(item => {
-      const d = item.createdAt.split('T')[0];
-      dailyTotals[d] = (dailyTotals[d] || 0) + item.macros.calories;
-    });
-
-    let currentStreak = 0;
-    let streakActive = true;
-
-    // Go backwards from today to 30 days to calculate streak
-    for (let i = 0; i < 30; i++) {
-      const d = new Date(today);
-      d.setDate(d.getDate() - i);
-      const dateStr = d.toISOString().split('T')[0];
-      
-      const cals = dailyTotals[dateStr] || 0;
-      // Goal hit if > 50% of target and < 110% of target
-      const hitGoal = cals > (targetCalories * 0.5) && cals <= (targetCalories * 1.1);
-      
-      // Streak calculation
-      if (streakActive) {
-        if (hitGoal) currentStreak++;
-        else if (i > 0) streakActive = false; // missing today doesn't break yesterday's streak yet
-      }
-
-      // We only need last 7 days for the UI array
-      if (i < 7) {
-        const isToday = i === 0;
-        let status = 'empty';
-        if (cals > 0) {
-          status = hitGoal ? 'success' : 'danger';
-        }
-        
-        days.unshift({
-          dateStr,
-          dayName: isToday ? 'Today' : d.toLocaleDateString('en-US', { weekday: 'short' }),
-          status,
-          cals
-        });
-      }
-    }
-    
-    return { days, currentStreak };
-  }, [allHistory, targetCalories]);
-
-  const handleGetSuggestions = async () => {
-    setIsLoadingSuggestions(true);
-    try {
-      const res = await suggestMealsRequest(remainingCalories, remainingProtein);
-      if (res.success) setSuggestions(res.data);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setIsLoadingSuggestions(false);
+  // Handle successful scan
+  const handleFileSelected = async (file: File | null) => {
+    clearError();
+    const success = await uploadImage(file, "auto");
+    if (success) {
+      setIsUploadModalOpen(false);
+      onUploadSuccess();
     }
   };
 
+  const handleAddWater = () => {
+    setHydrationML((prev) => Math.min(2500, prev + 250));
+  };
+
+  const hydrationPercent = Math.round((hydrationML / 2500) * 100);
+
   return (
-    <div className="flex-1 overflow-y-auto px-8 py-12">
-      <div className="max-w-4xl mx-auto">
-        <div className="flex justify-between items-center mb-4">
-          <div className="text-sm font-medium text-textMuted">Dashboard</div>
-          {last7Days.currentStreak > 0 && (
-            <div className="flex items-center gap-1.5 bg-orange-500/20 text-orange-500 px-3 py-1 rounded-full text-xs font-bold border border-orange-500/30">
-              🔥 {last7Days.currentStreak}-Day Streak!
-            </div>
-          )}
+    <div className="flex-1 min-h-screen bg-background relative overflow-y-auto pb-24 animate-fade-in">
+      {/* Top Header */}
+      <header className="px-8 pt-8 pb-4 flex justify-between items-center max-w-6xl mx-auto w-full">
+        <div>
+          <h1 className="text-3xl font-bold text-textHeading tracking-tight">Welcome back, Alex</h1>
+          <p className="text-textMuted text-sm mt-1">You've reached 85% of your protein goal today.</p>
         </div>
-
-        <h1 className="text-3xl font-bold tracking-tight text-textMain mb-2">
-          Food Upload &amp; Analysis Dashboard
-        </h1>
-        <p className="text-sm text-textMuted mb-8">
-          Upload food images for AI-powered nutritional analysis and personalized health insights
-        </p>
-
-        {/* Weekly Calendar */}
-        <div className="mb-6 flex items-center justify-between gap-2 overflow-x-auto pb-2">
-          {last7Days.days.map((day, idx) => (
-            <div key={idx} className="flex flex-col items-center flex-shrink-0 w-12">
-              <span className={`text-[10px] font-bold mb-1.5 ${day.dayName === 'Today' ? 'text-primary' : 'text-textMuted'}`}>
-                {day.dayName}
-              </span>
-              <div 
-                className={`w-8 h-8 rounded-full flex items-center justify-center border-2 transition-all ${
-                  day.status === 'success' ? 'bg-success/20 border-success text-success' :
-                  day.status === 'danger' ? 'bg-danger/20 border-danger text-danger' :
-                  'bg-panel border-panelBorder text-textMuted'
-                }`}
-                title={`${day.cals} kcal`}
-              >
-                {day.status === 'success' ? '✓' : day.status === 'danger' ? '!' : '-'}
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Daily Widgets */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-          {/* Daily Progress Widget */}
-          <div className="p-6 rounded-2xl border border-panelBorder bg-panel shadow-sm flex flex-col h-full">
-          <div className="flex justify-between items-end mb-3">
-            <div>
-              <h2 className="text-lg font-bold text-textMain">Today's Progress</h2>
-              <p className="text-xs text-textMuted mt-1">Caloric intake vs your daily target</p>
-            </div>
-            <div className="text-right">
-              <span className="text-2xl font-bold text-primary">{dailyCalories}</span>
-              <span className="text-sm font-medium text-textMuted"> / {targetCalories} kcal</span>
-            </div>
-          </div>
-          <div className="h-4 w-full bg-background rounded-full overflow-hidden border border-panelBorder">
-            <div 
-              className={`h-full transition-all duration-1000 ease-out ${progressPercent > 100 ? 'bg-danger' : 'bg-primary'}`} 
-              style={{ width: `${progressPercent}%` }}
-            />
-          </div>
-          <div className="mt-3 flex justify-between text-xs font-medium text-textMuted">
-            <span>{todayHistory.length} meals logged today</span>
-            <span>{remainingCalories} kcal remaining</span>
-          </div>
-
-          {/* AI Advisor Block */}
-          <div className="mt-6 pt-6 border-t border-panelBorder">
-            <button 
-              onClick={handleGetSuggestions}
-              disabled={isLoadingSuggestions || remainingCalories < 100}
-              className="w-full flex items-center justify-center gap-2 rounded-xl bg-purple-600/10 text-purple-400 hover:bg-purple-600/20 px-4 py-3 text-sm font-bold transition-colors disabled:opacity-50"
-            >
-              <SparklesIcon className="h-5 w-5" /> 
-              {isLoadingSuggestions ? "Consulting AI..." : "What should I eat next?"}
-            </button>
-            
-            {suggestions.length > 0 && (
-              <div className="mt-4 grid gap-3 grid-cols-1 sm:grid-cols-3">
-                {suggestions.map((meal, idx) => (
-                  <div key={idx} className="p-4 bg-background rounded-xl border border-panelBorder shadow-sm flex flex-col h-full">
-                    <div className="flex justify-between items-start mb-2 gap-2">
-                      <div className="font-bold text-sm text-textMain leading-tight">{meal.name}</div>
-                      <div className="text-xs font-bold bg-primary/10 text-primary px-2 py-0.5 rounded whitespace-nowrap">
-                        {meal.calories} kcal
-                      </div>
-                    </div>
-                    <div className="text-xs text-textMuted leading-relaxed flex-1 mb-3">{meal.description}</div>
-                    <div className="text-xs font-semibold text-success bg-success/10 px-2 py-1 rounded w-fit">
-                      {meal.protein}g protein
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+        <div className="flex items-center gap-3">
+          {/* Header Action Buttons */}
+          <button className="w-10 h-10 rounded-full bg-white flex items-center justify-center border border-border hover:bg-surfaceAlt text-textHeading transition-colors shadow-sm">
+            <SearchIcon className="w-4 h-4" />
+          </button>
+          <button className="w-10 h-10 rounded-full bg-white flex items-center justify-center border border-border hover:bg-surfaceAlt text-textHeading transition-colors shadow-sm relative">
+            <svg viewBox="0 0 24 24" fill="none" className="w-4 h-4" stroke="currentColor" strokeWidth={2}>
+              <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0" />
+            </svg>
+          </button>
+          <div className="flex items-center justify-center w-10 h-10 rounded-full bg-[#EBF2EB] border border-[#D4E6D5] text-[#2C3E2B] font-bold text-sm shadow-sm cursor-pointer hover:bg-[#D4E6D5] transition-colors">
+            AR
           </div>
         </div>
+      </header>
 
-        <div className="md:col-span-1 slide-up">
-          <GamificationWidget 
-            xp={profile?.xp || 0} 
-            level={profile?.level || 1} 
-            badges={profile?.unlockedBadges || []} 
-          />
-        </div>
+      {/* Main Grid Content */}
+      <main className="px-8 py-4 max-w-6xl mx-auto w-full grid grid-cols-1 lg:grid-cols-[1.5fr_1fr] gap-8">
         
-        {/* Hydration Widget */}
-        <div className="h-full">
-          <HydrationWidget />
-        </div>
-      </div>
+        {/* Left Column (Meals & Hydration) */}
+        <div className="space-y-8">
+          
+          {/* Today's Meals Section */}
+          <section className="bg-white rounded-[24px] border border-border p-6 shadow-sm card-hover animate-slide-up">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-bold text-textHeading">Today's Meals</h2>
+              <button 
+                onClick={() => setIsUploadModalOpen(true)}
+                className="flex items-center gap-1.5 px-4 py-2 bg-[#9DB89F] hover:bg-[#7A9E7E] text-white rounded-xl text-xs font-bold transition-all shadow-sm"
+              >
+                <span className="text-sm font-semibold">+</span> Log Meal
+              </button>
+            </div>
 
-        <div className="mb-16">
-          <UploadCard
-            dragActive={dragActive}
-            errorMessage={errorMessage}
-            isUploading={isUploading}
-            onDragChange={(active) => {
-              clearError();
-              setDragActive(active);
-            }}
-            onFileSelected={async (file, mealType) => {
-              clearError();
-              const success = await uploadImage(file, mealType);
-              if (success) {
-                onUploadSuccess();
-              }
-            }}
-          />
-        </div>
-
-        <section className="text-center max-w-2xl mx-auto">
-          <h2 className="text-xl font-bold tracking-tight text-textMain mb-4">
-            Ready to Analyze Your Food?
-          </h2>
-          <p className="text-sm text-textMuted leading-relaxed mb-8">
-            Upload an image of your meal to get started with AI-powered nutritional analysis, volume estimation, and personalized health recommendations.
-          </p>
-
-          <div className="flex flex-wrap justify-center gap-x-12 gap-y-4">
-            {featureItems.map((item) => (
-              <div key={item.label} className="flex items-center gap-2">
-                <span className="h-2 w-2 rounded-full" style={{ backgroundColor: item.color }} />
-                <span className="text-sm font-medium text-textMuted">{item.label}</span>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Meal Card 1 */}
+              <div className="bg-white border border-border rounded-2xl overflow-hidden card-hover transition-all">
+                <img 
+                  src="https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=600&auto=format&fit=crop&q=80" 
+                  alt="Quinoa Power Bowl" 
+                  className="w-full h-40 object-cover"
+                />
+                <div className="p-4">
+                  <div className="flex justify-between items-start mb-1">
+                    <h3 className="font-bold text-textHeading text-base">Quinoa Power Bowl</h3>
+                    <span className="px-2 py-0.5 rounded-md bg-[#EBF2EB] text-[#2C3E2B] text-[10px] font-bold">Lunch</span>
+                  </div>
+                  <p className="text-xs text-textMuted mb-3">12:30 PM</p>
+                  <div className="flex items-center gap-4 text-xs font-semibold">
+                    <span className="flex items-center gap-1 text-orange-600">
+                      <FireIcon className="w-4 h-4" /> 480 kcal
+                    </span>
+                    <span className="flex items-center gap-1 text-[#7A9E7E]">
+                      <span className="w-2 h-2 rounded-full bg-[#7A9E7E] inline-block"></span> 22 g
+                    </span>
+                  </div>
+                </div>
               </div>
-            ))}
+
+              {/* Meal Card 2 */}
+              <div className="bg-white border border-border rounded-2xl overflow-hidden card-hover transition-all">
+                <img 
+                  src="https://images.unsplash.com/photo-1488477181946-6428a0291777?w=600&auto=format&fit=crop&q=80" 
+                  alt="Greek Yogurt & Berries" 
+                  className="w-full h-40 object-cover"
+                />
+                <div className="p-4">
+                  <div className="flex justify-between items-start mb-1">
+                    <h3 className="font-bold text-textHeading text-base">Greek Yogurt &amp; Berries</h3>
+                    <span className="px-2 py-0.5 rounded-md bg-[#FEF0EB] text-[#E8815A] text-[10px] font-bold">Breakfast</span>
+                  </div>
+                  <p className="text-xs text-textMuted mb-3">09:15 AM</p>
+                  <div className="flex items-center gap-4 text-xs font-semibold">
+                    <span className="flex items-center gap-1 text-orange-600">
+                      <FireIcon className="w-4 h-4" /> 310 kcal
+                    </span>
+                    <span className="flex items-center gap-1 text-[#7A9E7E]">
+                      <span className="w-2 h-2 rounded-full bg-[#7A9E7E] inline-block"></span> 18 g
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* Hydration Tracker Section */}
+          <section className="bg-white rounded-[24px] border border-border p-6 shadow-sm flex items-center justify-between card-hover animate-slide-up">
+            <div className="space-y-4">
+              <div>
+                <h2 className="text-lg font-bold text-textHeading">Hydration Tracker</h2>
+                <p className="text-sm text-textMuted mt-1">You've drunk {(hydrationML/1000).toFixed(1)}L of your 2.5L goal.</p>
+              </div>
+              <button 
+                onClick={handleAddWater}
+                className="px-6 py-2 bg-[#F9FAF8] border border-[#E2E4DC] hover:border-[#7A9E7E] text-textHeading hover:text-[#7A9E7E] rounded-xl text-xs font-bold transition-all shadow-sm"
+              >
+                Add 250ml
+              </button>
+            </div>
+
+            {/* Circular Progress Gauge */}
+            <div className="relative w-28 h-28 flex-shrink-0">
+              <svg viewBox="0 0 36 36" className="w-full h-full -rotate-90">
+                <path
+                  className="text-[#E2E4DC]"
+                  strokeWidth="3.2"
+                  stroke="currentColor"
+                  fill="none"
+                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                />
+                <path
+                  className="text-blue"
+                  strokeDasharray={`${hydrationPercent}, 100`}
+                  strokeWidth="3.2"
+                  strokeLinecap="round"
+                  stroke="currentColor"
+                  fill="none"
+                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                />
+              </svg>
+              <div className="absolute inset-0 flex flex-col items-center justify-center">
+                <span className="text-xl font-bold text-textHeading">{hydrationPercent}%</span>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        {/* Right Column (Daily Progress, Calorie Trends, Yoga Card) */}
+        <div className="space-y-8">
+          
+          {/* Daily Progress (No card wrapper, title directly on bg, flat subcards) */}
+          <div className="space-y-4 animate-slide-up">
+            <h2 className="text-base font-bold text-textHeading uppercase tracking-wider">Daily Progress</h2>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="bg-[#F5F6F1] rounded-2xl p-4 transition-all hover:scale-[1.02]">
+                <div className="text-xs text-textMuted font-medium mb-1">Steps</div>
+                <div className="text-xl font-extrabold text-textHeading">8,432 <span className="text-xs text-textMuted font-medium">steps</span></div>
+              </div>
+              <div className="bg-[#F5F6F1] rounded-2xl p-4 transition-all hover:scale-[1.02]">
+                <div className="text-xs text-textMuted font-medium mb-1">Calories</div>
+                <div className="text-xl font-extrabold text-textHeading">1,240 <span className="text-xs text-textMuted font-medium">kcal</span></div>
+              </div>
+              <div className="bg-[#F5F6F1] rounded-2xl p-4 transition-all hover:scale-[1.02]">
+                <div className="text-xs text-textMuted font-medium mb-1">Sleep</div>
+                <div className="text-xl font-extrabold text-textHeading">7.5 <span className="text-xs text-textMuted font-medium">hrs</span></div>
+              </div>
+              <div className="bg-[#F5F6F1] rounded-2xl p-4 transition-all hover:scale-[1.02]">
+                <div className="text-xs text-textMuted font-medium mb-1">Active</div>
+                <div className="text-xl font-extrabold text-textHeading">45 <span className="text-xs text-textMuted font-medium">min</span></div>
+              </div>
+            </div>
           </div>
-        </section>
-      </div>
+
+          {/* Calorie Trends Chart */}
+          <section className="bg-white rounded-[24px] border border-border p-6 shadow-sm card-hover animate-slide-up">
+            <h2 className="text-base font-bold text-textHeading mb-4 uppercase tracking-wider">Calorie Trends</h2>
+            <div className="h-32">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={calorieTrendData} margin={{ left: 5, right: 5, top: 10, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="calorieTrendFill" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#9DB89F" stopOpacity={0.15} />
+                      <stop offset="95%" stopColor="#9DB89F" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fill: "#888888", fontSize: 11, fontWeight: 600 }} />
+                  <Tooltip content={<CustomTooltip />} />
+                  <Area 
+                    type="monotone" 
+                    dataKey="calories" 
+                    stroke="#9DB89F" 
+                    strokeWidth={2} 
+                    fill="url(#calorieTrendFill)" 
+                    dot={{ fill: "#9DB89F", r: 4, strokeWidth: 0 }}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          </section>
+
+          {/* Evening Yoga Card */}
+          <section className="bg-[#EBF2EB] border border-[#D4E6D5] rounded-2xl p-4 flex items-center justify-between cursor-pointer card-hover animate-slide-up">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-[#2C3E2B] shadow-sm">
+                {/* Dumbbell Icon */}
+                <svg viewBox="0 0 24 24" fill="none" className="w-5 h-5" stroke="currentColor" strokeWidth={2}>
+                  <path d="M6.5 12h11M4 12H2M22 12h-2M6.5 8l-2 4 2 4M17.5 8l2 4-2 4" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="font-bold text-textHeading text-sm">Evening Yoga</h3>
+                <p className="text-xs text-textMuted">15 min • Restorative Flow</p>
+              </div>
+            </div>
+            <span className="text-textMuted text-lg font-bold">&gt;</span>
+          </section>
+        </div>
+      </main>
+
+      {/* Floating Action Button (FAB) for Scan Meal */}
+      <button 
+        onClick={() => setIsUploadModalOpen(true)}
+        className="fixed bottom-8 right-8 flex items-center gap-2 px-6 py-3.5 bg-[#9DB89F] hover:bg-[#7A9E7E] text-white rounded-full font-bold shadow-lg shadow-[#9DB89F]/30 hover:scale-105 active:scale-95 transition-all z-20"
+      >
+        <CameraIcon className="w-5 h-5" />
+        <span>Scan Meal</span>
+      </button>
+
+      {/* Overlay Upload Modal */}
+      {isUploadModalOpen && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-[32px] w-full max-w-2xl border border-border shadow-2xl relative p-8">
+            <button 
+              onClick={() => {
+                clearError();
+                cancelUpload();
+                setIsUploadModalOpen(false);
+              }}
+              className="absolute top-6 right-6 text-textMuted hover:text-textHeading transition-colors"
+            >
+              <CloseIcon className="w-6 h-6" />
+            </button>
+            <div className="mb-4">
+              <h2 className="text-2xl font-bold text-textHeading tracking-tight">Scan Food Meal</h2>
+              <p className="text-textMuted text-xs mt-1">Upload an image of your meal for AI-powered nutritional breakdown</p>
+            </div>
+            
+            <div className="mt-6">
+              <UploadCard
+                dragActive={dragActive}
+                errorMessage={errorMessage}
+                isUploading={isUploading}
+                onDragChange={(active) => {
+                  clearError();
+                  setDragActive(active);
+                }}
+                onFileSelected={handleFileSelected}
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

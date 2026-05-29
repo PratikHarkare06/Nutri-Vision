@@ -2,24 +2,13 @@ import { useEffect, useMemo, useState } from "react";
 import { fetchHistoryRequest, getHistoryErrorMessage } from "../services/historyApi";
 import { useUploadStore } from "../store/uploadStore";
 import type { HistoryPagination, UploadAnalysis } from "../types";
+import { BarChart, Bar, ResponsiveContainer, XAxis, Tooltip, PieChart, Pie, Cell } from "recharts";
 import {
-  BoltIcon,
-  BreadcrumbChevronIcon,
-  CalendarIcon,
   CameraIcon,
   ChevronDownIcon,
-  EyeIcon,
-  FireIcon,
-  ForkKnifeIcon,
-  HistoryIcon,
   HomeIcon,
-  RotateCwIcon,
   SearchIcon,
   SlidersIcon,
-  SquareIcon,
-  StatsIcon,
-  TargetIcon,
-  TrashIcon,
 } from "../components/icons";
 
 type HistoryPageProps = {
@@ -43,52 +32,36 @@ const foodCategories: Record<string, string> = {
   Tomatoes: "Vegetables",
 };
 
-const formatCalories = (value: number) => `${Math.round(value)} cal`;
-const formatMacro = (value: number) => `${Number.isInteger(value) ? value : value.toFixed(1)}g`;
-const formatCompactNumber = (value: number) => {
-  if (value >= 1000) {
-    return `${(value / 1000).toFixed(1)}k`;
-  }
-  return `${value}`;
-};
+// Mock data for right column charts
+const weeklyCalorieData = [
+  { day: "M", calories: 1550 },
+  { day: "T", calories: 1420 },
+  { day: "W", calories: 1720 },
+  { day: "T", calories: 1590 },
+  { day: "F", calories: 1680 },
+  { day: "S", calories: 1350 },
+  { day: "S", calories: 1490 },
+];
+
+const macroSplitData = [
+  { name: "Protein", value: 30, color: "#9DB89F" },
+  { name: "Carbs", value: 45, color: "#E8815A" },
+  { name: "Fats", value: 25, color: "#D4A847" },
+];
 
 const formatHistoryDate = (value: string) =>
   new Intl.DateTimeFormat("en-US", {
-    day: "numeric",
     hour: "numeric",
     minute: "2-digit",
     month: "short",
+    day: "numeric",
   }).format(new Date(value));
-
-const HistoryMetricCard = ({
-  icon: Icon,
-  title,
-  value,
-}: {
-  icon: typeof StatsIcon;
-  title: string;
-  value: string;
-}) => (
-  <div className="rounded-2xl border border-panelBorder bg-panel p-6 flex items-center gap-4">
-    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-orange-900/30 text-primary">
-      <Icon className="h-6 w-6" />
-    </div>
-    <div>
-      <div className="text-2xl font-bold tracking-tight text-textMain">
-        {value}
-      </div>
-      <div className="text-sm font-medium text-textMuted mt-0.5">
-        {title}
-      </div>
-    </div>
-  </div>
-);
 
 export const HistoryPage = ({ onNavigate }: HistoryPageProps) => {
   const setAnalysis = useUploadStore((state) => state.setAnalysis);
   const [historyItems, setHistoryItems] = useState<UploadAnalysis[]>([]);
   const [pagination, setPagination] = useState<HistoryPagination>({
-    limit: 5,
+    limit: 10,
     page: 1,
     total: 0,
   });
@@ -97,23 +70,21 @@ export const HistoryPage = ({ onNavigate }: HistoryPageProps) => {
   const [sort, setSort] = useState<SortValue>("desc");
   const [isFetching, setIsFetching] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [showFilters, setShowFilters] = useState(false);
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
       setSearchTerm(searchInput.trim());
       setPagination((current) => ({ ...current, page: 1 }));
     }, 350);
-
     return () => window.clearTimeout(timeoutId);
   }, [searchInput]);
 
   useEffect(() => {
     const controller = new AbortController();
-
     const loadHistory = async () => {
       setIsFetching(true);
       setErrorMessage("");
-
       try {
         const response = await fetchHistoryRequest({
           limit: pagination.limit,
@@ -122,234 +93,192 @@ export const HistoryPage = ({ onNavigate }: HistoryPageProps) => {
           sort,
           signal: controller.signal,
         });
-
         setHistoryItems((current) =>
           pagination.page === 1 ? response.data : [...current, ...response.data],
         );
         setPagination(response.pagination);
       } catch (error) {
-        if ((error as { code?: string }).code === "ERR_CANCELED") {
-          return;
-        }
-
+        if ((error as { code?: string }).code === "ERR_CANCELED") return;
         setErrorMessage(getHistoryErrorMessage(error));
-        if (pagination.page === 1) {
-          setHistoryItems([]);
-        }
+        if (pagination.page === 1) setHistoryItems([]);
       } finally {
         setIsFetching(false);
       }
     };
-
     void loadHistory();
-
     return () => controller.abort();
   }, [pagination.page, pagination.limit, searchTerm, sort]);
 
-  const primaryCards = useMemo(() => {
-    const now = Date.now();
-    const sevenDays = 7 * 24 * 60 * 60 * 1000;
-    const weeklyCount = historyItems.filter(
-      (item) => now - new Date(item.createdAt).getTime() <= sevenDays,
-    ).length;
-    const averageCalories =
-      historyItems.length > 0
-        ? Math.round(
-            historyItems.reduce((total, item) => total + item.macros.calories, 0) /
-              historyItems.length,
-          )
-        : 0;
-    const identified = historyItems.reduce((total, item) => total + item.foods.length, 0);
+  // Static mock logs to populate page if empty
+  const defaultHistory: UploadAnalysis[] = [
+    {
+      id: "1",
+      imageUrl: "https://images.unsplash.com/photo-1485921325814-a5dad423a3b6?w=600&auto=format&fit=crop&q=80",
+      createdAt: new Date().toISOString(),
+      weight: 350,
+      volume: 320,
+      foods: [{ name: "Grilled Salmon Salad", confidence: 0.98 }],
+      macros: { calories: 520, protein: 42, carbs: 12, fat: 28, fiber: 4 }
+    },
+    {
+      id: "2",
+      imageUrl: "https://images.unsplash.com/photo-1524351199679-46cddf530c04?w=600&auto=format&fit=crop&q=80",
+      createdAt: new Date(Date.now() - 3600000 * 5).toISOString(),
+      weight: 250,
+      volume: 240,
+      foods: [{ name: "Turkey Sandwich", confidence: 0.95 }],
+      macros: { calories: 380, protein: 24, carbs: 45, fat: 12, fiber: 5 }
+    },
+    {
+      id: "3",
+      imageUrl: "https://images.unsplash.com/photo-1541532713592-79a0317b6b77?w=600&auto=format&fit=crop&q=80",
+      createdAt: new Date(Date.now() - 3600000 * 24).toISOString(),
+      weight: 220,
+      volume: 200,
+      foods: [{ name: "Avocado Toast", confidence: 0.92 }],
+      macros: { calories: 310, protein: 8, carbs: 32, fat: 18, fiber: 6 }
+    },
+    {
+      id: "4",
+      imageUrl: "https://images.unsplash.com/photo-1512058564366-18510be2db19?w=600&auto=format&fit=crop&q=80",
+      createdAt: new Date(Date.now() - 3600000 * 25).toISOString(),
+      weight: 400,
+      volume: 380,
+      foods: [{ name: "Beef Stir Fry", confidence: 0.90 }],
+      macros: { calories: 640, protein: 38, carbs: 55, fat: 22, fiber: 3 }
+    },
+    {
+      id: "5",
+      imageUrl: "https://images.unsplash.com/photo-1553530666-ba11a7da3888?w=600&auto=format&fit=crop&q=80",
+      createdAt: new Date(Date.now() - 3600000 * 28).toISOString(),
+      weight: 300,
+      volume: 280,
+      foods: [{ name: "Protein Shake", confidence: 0.89 }],
+      macros: { calories: 180, protein: 30, carbs: 5, fat: 2, fiber: 1 }
+    }
+  ];
 
-    return [
-      { icon: StatsIcon, title: "Total Items", value: `${pagination.total}` },
-      { icon: CalendarIcon, title: "This Week", value: `${weeklyCount}` },
-      { icon: BoltIcon, title: "Avg Calories", value: formatCompactNumber(averageCalories) },
-      { icon: ForkKnifeIcon, title: "Ingredients", value: `${identified}` },
-    ] as const;
-  }, [historyItems, pagination.total]);
-
-  const hasMore = historyItems.length < pagination.total;
+  const displayItems = historyItems.length > 0 ? historyItems : defaultHistory;
+  const hasMore = historyItems.length > 0 && historyItems.length < pagination.total;
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-background overflow-hidden relative">
-      <div className="flex-1 overflow-y-auto px-8 py-8">
-        <div className="max-w-5xl mx-auto pb-24">
+    <div className="flex-1 min-h-screen bg-background relative overflow-y-auto pb-24 px-8 pt-8">
+      {/* Header */}
+      <header className="max-w-6xl mx-auto w-full mb-8">
+        <div className="flex justify-between items-center w-full">
+          <div>
+            <h1 className="text-3xl font-bold text-textHeading tracking-tight">Meal History</h1>
+            <p className="text-textMuted text-sm mt-1">Your journey through healthy eating</p>
+          </div>
+          <button
+            className="flex items-center gap-1.5 rounded-full bg-white border border-[#E2E4DC] hover:bg-surfaceAlt px-5 py-2.5 text-xs font-bold text-textHeading transition-colors shadow-sm"
+            type="button"
+            onClick={() => onNavigate("/")}
+          >
+            <CameraIcon className="h-4 w-4" />
+            Upload Food
+          </button>
+        </div>
+      </header>
+
+      {/* Main Grid Content */}
+      <main className="max-w-6xl mx-auto w-full grid grid-cols-1 lg:grid-cols-[1.5fr_1fr] gap-8">
+        
+        {/* Left Column (Recent Logs List) */}
+        <div className="space-y-6">
           
-          <div className="flex items-center gap-2 text-xs font-medium text-textMuted mb-2">
-            <HomeIcon className="h-4 w-4" />
-            <button className="hover:text-textMain transition-colors" type="button" onClick={() => onNavigate("/")}>
-              Dashboard
-            </button>
-            <BreadcrumbChevronIcon className="h-3 w-3" />
-            <span className="text-textMain">History</span>
-          </div>
-
-          <div className="flex items-center justify-between mb-8">
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight text-textMain">Detection History</h1>
-              <p className="mt-1 text-sm text-textMuted">Review your analyzed food items</p>
-            </div>
-            <button
-              className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-orange-600 transition-colors"
-              type="button"
-              onClick={() => onNavigate("/")}
-            >
-              <CameraIcon className="h-4 w-4" />
-              Upload Food
-            </button>
-          </div>
-
-          <section className="grid grid-cols-4 gap-4 mb-8">
-            {primaryCards.map((card) => (
-              <HistoryMetricCard
-                key={card.title}
-                icon={card.icon}
-                title={card.title}
-                value={card.value}
-              />
-            ))}
-          </section>
-
-          <section className="flex flex-col sm:flex-row items-center gap-4 mb-6">
-            <div className="flex-1 w-full relative">
-              <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-textMuted" />
-              <input
-                className="w-full rounded-lg border border-panelBorder bg-panel py-2.5 pl-10 pr-4 text-sm text-textMain placeholder-textMuted focus:border-primary focus:outline-none"
-                placeholder="Search history..."
-                value={searchInput}
-                onChange={(event) => setSearchInput(event.target.value)}
-              />
-            </div>
-            
-            <div className="flex items-center gap-4 w-full sm:w-auto">
-              <div className="relative">
-                <select
-                  className="appearance-none rounded-lg border border-panelBorder bg-panel px-4 py-2.5 pr-10 text-sm font-medium text-textMain focus:border-primary focus:outline-none"
-                  value={sort}
-                  onChange={(event) => {
-                    setSort(event.target.value as SortValue);
-                    setPagination((current) => ({ ...current, page: 1 }));
-                  }}
-                >
-                  <option value="desc">Newest First</option>
-                  <option value="asc">Oldest First</option>
-                </select>
-                <ChevronDownIcon className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-textMuted" />
+          {/* Search and Filters Strip (Collapsible) */}
+          {showFilters && (
+            <div className="flex items-center gap-4 animate-slide-up">
+              <div className="flex-1 relative">
+                <SearchIcon className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-textMuted" />
+                <input
+                  className="w-full rounded-2xl border border-border bg-white py-3 pl-11 pr-4 text-sm text-textHeading placeholder-textMuted focus:border-primary focus:outline-none shadow-sm"
+                  placeholder="Search history..."
+                  value={searchInput}
+                  onChange={(event) => setSearchInput(event.target.value)}
+                />
               </div>
+              
+              <div className="flex items-center gap-3">
+                <div className="relative">
+                  <select
+                    className="appearance-none rounded-2xl border border-border bg-white px-5 py-3 pr-10 text-sm font-bold text-textHeading focus:border-primary focus:outline-none cursor-pointer shadow-sm"
+                    value={sort}
+                    onChange={(event) => {
+                      setSort(event.target.value as SortValue);
+                      setPagination((current) => ({ ...current, page: 1 }));
+                    }}
+                  >
+                    <option value="desc">Newest First</option>
+                    <option value="asc">Oldest First</option>
+                  </select>
+                  <ChevronDownIcon className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 h-4 w-4 text-textMuted" />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {errorMessage && (
+            <div className="rounded-xl border border-danger/50 bg-danger/10 px-6 py-4 text-sm font-medium text-danger">
+              {errorMessage}
+            </div>
+          )}
+
+          {/* Logs timeline */}
+          <div className="space-y-6">
+            <div className="flex justify-between items-center mb-4">
+              <div className="text-sm font-bold text-textHeading uppercase tracking-wider">Recent Logs</div>
               <button
-                className="flex items-center justify-center rounded-lg border border-panelBorder bg-panel p-2.5 text-textMuted hover:text-textMain transition-colors"
+                onClick={() => setShowFilters(!showFilters)}
+                className="flex items-center gap-1.5 px-4 py-2 bg-white border border-[#E2E4DC] hover:bg-surfaceAlt text-textHeading rounded-xl text-xs font-bold transition-all shadow-sm"
                 type="button"
               >
-                <SlidersIcon className="h-5 w-5" />
+                <SlidersIcon className="h-3.5 w-3.5 text-textMuted" /> Filters
               </button>
             </div>
-          </section>
-
-          {errorMessage ? (
-            <section className="mt-8 rounded-lg border border-danger/50 bg-danger/10 px-6 py-4 text-sm font-medium text-danger">
-              {errorMessage}
-            </section>
-          ) : null}
-
-          {!errorMessage && !isFetching && historyItems.length === 0 ? (
-            <section className="mt-8 rounded-2xl border border-dashed border-panelBorder bg-panel/30 px-6 py-12 text-center text-sm font-medium text-textMuted flex flex-col items-center">
-              <HistoryIcon className="h-8 w-8 mb-4 opacity-50" />
-              No history available yet
-            </section>
-          ) : null}
-
-          <section className="space-y-4">
-            {historyItems.map((item) => {
-              const primaryFood = item.foods[0];
-              const confidence = primaryFood ? Math.round(primaryFood.confidence * 100) : 0;
-              const category = primaryFood ? foodCategories[primaryFood.name] ?? "Detected Item" : "Detected Item";
-
-              return (
-                <button
-                  key={item.id}
-                  className="w-full group rounded-2xl border border-panelBorder bg-panel p-5 text-left hover:border-primary/50 transition-colors"
-                  type="button"
-                  onClick={() => {
-                    setAnalysis(item);
-                    onNavigate("/results");
-                  }}
-                >
-                  <div className="flex items-center justify-between mb-4 pb-4 border-b border-panelBorder/50">
-                    <div className="flex items-center gap-3">
-                      <div className="h-2 w-2 rounded-full bg-primary" />
-                      <span className="text-xs font-semibold text-textMuted">
-                        {formatHistoryDate(item.createdAt)}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-4 text-textMuted opacity-0 group-hover:opacity-100 transition-opacity">
-                      <div className="hover:text-primary transition-colors">
-                        <RotateCwIcon className="h-4 w-4" />
-                      </div>
-                      <div className="hover:text-danger transition-colors">
-                        <TrashIcon className="h-4 w-4" />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex gap-6">
+            
+            <div className="space-y-4">
+              {displayItems.map((item) => {
+                const primaryFood = item.foods[0];
+                const displayName = primaryFood?.name || "Analyzed Meal";
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => {
+                      setAnalysis(item);
+                      onNavigate("/results");
+                    }}
+                    className="w-full rounded-[24px] border border-border bg-white p-4 text-left hover:shadow-md transition-shadow flex items-center gap-4"
+                  >
                     <img
-                      alt={primaryFood?.name || "History food"}
-                      className="h-28 w-28 rounded-xl object-cover"
                       src={item.imageUrl}
+                      alt={displayName}
+                      className="h-20 w-20 rounded-2xl object-cover shrink-0"
                     />
-                    <div className="flex-1 pt-1">
-                      <div className="flex justify-between items-start mb-1">
-                        <div className="text-lg font-bold text-textMain">
-                          {primaryFood?.name || "Unknown Item"}
-                        </div>
-                        <div className="flex items-center gap-2 text-sm font-bold text-success bg-success/10 px-2.5 py-1 rounded-full">
-                          <TargetIcon className="h-3.5 w-3.5" />
-                          {confidence}% match
-                        </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex justify-between items-baseline">
+                        <h3 className="font-bold text-textHeading text-base truncate capitalize">{displayName}</h3>
+                        <span className="text-sm font-bold text-textHeading shrink-0">{Math.round(item.macros.calories)} kcal</span>
                       </div>
-                      <div className="text-sm font-medium text-textMuted mb-4">
-                        {category} • {Math.round(item.weight)}g
-                      </div>
+                      <p className="text-xs text-textMuted mt-1">{formatHistoryDate(item.createdAt)}</p>
                       
-                      <div className="grid grid-cols-4 gap-4">
-                        <div>
-                          <div className="text-xs font-medium text-textMuted mb-1 flex items-center gap-1">
-                            <FireIcon className="h-3 w-3 text-orange-500" /> Calories
-                          </div>
-                          <div className="text-base font-bold text-textMain">
-                            {formatCalories(item.macros.calories)}
-                          </div>
-                        </div>
-                        <div>
-                          <div className="text-xs font-medium text-textMuted mb-1">Protein</div>
-                          <div className="text-base font-bold text-purple-400">
-                            {formatMacro(item.macros.protein)}
-                          </div>
-                        </div>
-                        <div>
-                          <div className="text-xs font-medium text-textMuted mb-1">Carbs</div>
-                          <div className="text-base font-bold text-emerald-400">
-                            {formatMacro(item.macros.carbs)}
-                          </div>
-                        </div>
-                        <div>
-                          <div className="text-xs font-medium text-textMuted mb-1">Fat</div>
-                          <div className="text-base font-bold text-orange-400">
-                            {formatMacro(item.macros.fat)}
-                          </div>
-                        </div>
+                      {/* Macros row */}
+                      <div className="mt-3 flex gap-4 text-xs font-semibold text-textMuted">
+                        <span>P: {Math.round(item.macros.protein)}g</span>
+                        <span>C: {Math.round(item.macros.carbs)}g</span>
+                        <span>F: {Math.round(item.macros.fat)}g</span>
                       </div>
                     </div>
-                  </div>
-                </button>
-              );
-            })}
-          </section>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
 
-          {hasMore ? (
+          {hasMore && (
             <button
-              className="mt-8 flex w-full items-center justify-center rounded-xl border border-panelBorder bg-panel py-3 text-sm font-medium text-textMain hover:bg-panelBorder/50 transition-colors"
+              className="mt-8 flex w-full items-center justify-center rounded-xl border border-border bg-white py-4 text-sm font-bold text-textHeading hover:bg-surfaceAlt transition-colors shadow-sm"
               disabled={isFetching}
               type="button"
               onClick={() =>
@@ -361,9 +290,106 @@ export const HistoryPage = ({ onNavigate }: HistoryPageProps) => {
             >
               {isFetching ? "Loading..." : "Load More History"}
             </button>
-          ) : null}
+          )}
         </div>
-      </div>
+
+        {/* Right Column (Analytics & Tips) */}
+        <div className="space-y-8">
+          
+          {/* Calorie Intake Bar Chart */}
+          <section className="bg-white rounded-[24px] border border-border p-6 shadow-sm">
+            <h2 className="text-base font-bold text-textHeading mb-4 uppercase tracking-wider">Calorie Intake (Last 7 Days)</h2>
+            <div className="h-44">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={weeklyCalorieData} margin={{ left: -10, right: 0, top: 5, bottom: 0 }}>
+                  <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fill: "#888888", fontSize: 11 }} />
+                  <Tooltip />
+                  <Bar dataKey="calories" fill="#9DB89F" radius={[4, 4, 0, 0]} barSize={16} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </section>
+
+          {/* Average Macronutrients Donut Chart */}
+          <section className="bg-white rounded-[24px] border border-border p-6 shadow-sm">
+            <h2 className="text-base font-bold text-textHeading mb-6 uppercase tracking-wider">Average Macronutrients</h2>
+            <div className="flex flex-col items-center justify-center gap-6">
+              
+              <div className="relative w-40 h-40">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={macroSplitData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={48}
+                      outerRadius={68}
+                      paddingAngle={3}
+                      dataKey="value"
+                      stroke="none"
+                    >
+                      {macroSplitData.map((entry) => (
+                        <Cell key={entry.name} fill={entry.color} />
+                      ))}
+                    </Pie>
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                  <span className="text-xl font-extrabold text-textHeading">30%</span>
+                  <span className="text-[9px] text-textMuted font-bold uppercase">Protein</span>
+                </div>
+              </div>
+
+              {/* Legends list */}
+              <div className="w-full space-y-4">
+                <div className="flex justify-between items-center text-xs font-semibold">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-[#9DB89F]"></span>
+                    <span className="text-textHeading">Protein</span>
+                  </div>
+                  <span className="text-textMuted">30%</span>
+                </div>
+                <div className="flex justify-between items-center text-xs font-semibold">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-[#E8815A]"></span>
+                    <span className="text-textHeading">Carbs</span>
+                  </div>
+                  <span className="text-textMuted">45%</span>
+                </div>
+                <div className="flex justify-between items-center text-xs font-semibold">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-[#D4A847]"></span>
+                    <span className="text-textHeading">Fat</span>
+                  </div>
+                  <span className="text-textMuted">25%</span>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* Weekly Insight Lightbulb Card */}
+          <section className="bg-[#EBF2EB] border border-[#D4E6D5] rounded-[24px] p-6 shadow-sm flex gap-3.5 items-start">
+            <span className="text-xl text-[#2C3E2B] mt-0.5">💡</span>
+            <div>
+              <h4 className="font-bold text-[#2C3E2B] text-sm">Weekly Insight</h4>
+              <p className="text-xs text-textBody leading-relaxed mt-1">
+                You've increased your protein intake by 12% compared to last week. Great progress!
+              </p>
+            </div>
+          </section>
+
+        </div>
+      </main>
+
+      {/* Floating Action Button for logging meal */}
+      <button
+        onClick={() => onNavigate("/")}
+        className="fixed bottom-8 right-8 flex items-center gap-2 px-6 py-3.5 bg-[#9DB89F] hover:bg-[#7A9E7E] text-white rounded-full font-bold shadow-lg shadow-[#9DB89F]/30 hover:scale-105 active:scale-95 transition-all z-20"
+      >
+        <CameraIcon className="w-5 h-5" />
+        <span>Log Meal</span>
+      </button>
+
     </div>
   );
 };

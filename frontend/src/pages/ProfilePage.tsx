@@ -1,13 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
-import { Controller, useForm } from "react-hook-form";
+import { useEffect, useState } from "react";
+import { useForm } from "react-hook-form";
 import {
-  BreadcrumbChevronIcon,
   CheckIcon,
   ChevronDownIcon,
-  FireIcon,
-  ForkKnifeIcon,
   HomeIcon,
-  TargetIcon,
   UserIcon,
 } from "../components/icons";
 import {
@@ -40,28 +36,6 @@ const dietModeOptions = [
   "Low Fat"
 ];
 
-const dietaryOptions = [
-  { label: "Vegetarian", description: "No meat, poultry, or fish" },
-  { label: "Vegan", description: "No animal products" },
-  { label: "Gluten-Free", description: "No wheat, barley, or rye" },
-  { label: "Dairy-Free", description: "No milk or dairy products" },
-  { label: "Nut-Free", description: "No tree nuts or peanuts" },
-  { label: "Ketogenic", description: "High fat, very low carb" },
-  { label: "Paleo", description: "Whole foods, no processed items" },
-  { label: "Low Sodium", description: "Reduced salt intake" },
-];
-
-const allergyOptions = ["Shellfish", "Eggs", "Soy", "Fish", "Sesame", "Sulfites"];
-
-const healthConditionsOptions = [
-  { label: "Diabetes", description: "Type 1 or Type 2 diabetes" },
-  { label: "High Blood Pressure", description: "Hypertension management" },
-  { label: "High Cholesterol", description: "Cholesterol management" },
-  { label: "Heart Disease", description: "Cardiovascular conditions" },
-  { label: "Kidney Disease", description: "Renal health concerns" },
-  { label: "Thyroid Disorders", description: "Hypo/hyperthyroidism" },
-];
-
 const primaryGoalOptions = [
   "Weight Loss",
   "Weight Maintenance",
@@ -73,9 +47,9 @@ const primaryGoalOptions = [
 const defaultValues: ProfileFormValues = {
   activityLevel: "Moderately Active",
   age: 28,
-  dietaryRestrictions: ["Vegetarian", "Gluten-Free"],
+  dietaryRestrictions: ["Vegetarian", "High Protein"],
   email: "sarah.johnson@email.com",
-  foodAllergies: ["Shellfish"],
+  foodAllergies: [],
   fullName: "Sarah Johnson",
   gender: "Female",
   height: 165,
@@ -84,7 +58,7 @@ const defaultValues: ProfileFormValues = {
   healthGoals: [],
   primaryGoal: "Weight Maintenance",
   nutritionalTargets: {
-    calories: 1800,
+    calories: 2100,
     water: 2.5,
     protein: 25,
     carbs: 45,
@@ -112,9 +86,7 @@ const mapProfileToFormValues = (profile: UserProfile): ProfileFormValues => ({
 
 export const ProfilePage = ({ onNavigate }: ProfilePageProps) => {
   const {
-    control,
     formState: { errors, isSubmitting, isDirty },
-    getValues,
     handleSubmit,
     register,
     reset,
@@ -128,8 +100,23 @@ export const ProfilePage = ({ onNavigate }: ProfilePageProps) => {
   const [errorMessage, setErrorMessage] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [saveMessage, setSaveMessage] = useState("");
-  const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [activeTab, setActiveTab] = useState<"preferences" | "transformation">("preferences");
+  
+  // App views state
+  const [isEditing, setIsEditing] = useState(false);
+  const [showTracker, setShowTracker] = useState(false);
+
+  // Profile preferences (mock & DB synced)
+  const dietaryRestrictions = watch("dietaryRestrictions") || [];
+  const [nutAllergyWarning, setNutAllergyWarning] = useState(true);
+
+  // Targets values
+  const calTarget = watch("nutritionalTargets.calories") || 2100;
+  const proteinTarget = watch("nutritionalTargets.protein") || 25;
+  const carbsTarget = watch("nutritionalTargets.carbs") || 45;
+  
+  // Calculate macronutrient values in grams for visual targets
+  const proteinGrams = Math.round((calTarget * (proteinTarget / 100)) / 4);
+  const carbsGrams = Math.round((calTarget * (carbsTarget / 100)) / 4);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -141,7 +128,6 @@ export const ProfilePage = ({ onNavigate }: ProfilePageProps) => {
       try {
         const response = await fetchProfileRequest(controller.signal);
         reset(mapProfileToFormValues(response.data));
-        setProfile(response.data);
       } catch (error) {
         if ((error as { code?: string }).code !== "ERR_CANCELED") {
           setErrorMessage(getProfileErrorMessage(error));
@@ -155,15 +141,6 @@ export const ProfilePage = ({ onNavigate }: ProfilePageProps) => {
 
     return () => controller.abort();
   }, [reset]);
-
-  const dietaryRestrictions = watch("dietaryRestrictions");
-  const foodAllergies = watch("foodAllergies");
-  const healthGoals = watch("healthGoals") || [];
-  
-  const protein = watch("nutritionalTargets.protein") || 0;
-  const carbs = watch("nutritionalTargets.carbs") || 0;
-  const fat = watch("nutritionalTargets.fat") || 0;
-  const totalMacroPercent = protein + carbs + fat;
 
   const onSubmit = async (values: ProfileFormValues) => {
     setErrorMessage("");
@@ -182,464 +159,480 @@ export const ProfilePage = ({ onNavigate }: ProfilePageProps) => {
       });
 
       reset(mapProfileToFormValues(response.data));
-      setProfile(response.data);
       setSaveMessage("Profile saved successfully.");
+      setIsEditing(false);
+      setTimeout(() => setSaveMessage(""), 3000);
     } catch (error) {
       setErrorMessage(getSaveProfileErrorMessage(error));
     }
   };
 
-  const toggleArrayField = (field: "dietaryRestrictions" | "foodAllergies" | "healthGoals", value: string) => {
-    const current = getValues(field) || [];
-    const nextValues = current.includes(value)
-      ? current.filter((item) => item !== value)
-      : [...current, value];
-    setValue(field, nextValues, { shouldDirty: true });
+  const toggleRestriction = (tag: string) => {
+    const nextRestrictions = dietaryRestrictions.includes(tag)
+      ? dietaryRestrictions.filter((t) => t !== tag)
+      : [...dietaryRestrictions, tag];
+    setValue("dietaryRestrictions", nextRestrictions, { shouldDirty: true });
   };
 
-  const CheckboxLabel = ({ label, description, isChecked, onClick }: any) => (
-    <div className="flex items-start gap-3 cursor-pointer" onClick={onClick}>
-      <div className={`mt-0.5 flex h-4 w-4 items-center justify-center rounded border transition-colors ${
-        isChecked ? "border-primary bg-primary text-white" : "border-gray-500 bg-transparent text-transparent"
-      }`}>
-        <CheckIcon className="h-3 w-3" />
+  const handleSignOut = () => {
+    alert("Signing out...");
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex-1 flex justify-center items-center min-h-screen bg-background">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#7A9E7E]"></div>
       </div>
-      <div>
-        <div className="text-sm font-medium text-textMain leading-none">{label}</div>
-        {description && <div className="mt-1 text-xs text-textMuted">{description}</div>}
-      </div>
-    </div>
-  );
+    );
+  }
+
+  // Dietary Preferences Tags from Profile.png
+  const preferenceTags = [
+    "Vegetarian",
+    "Gluten Free",
+    "High Protein",
+    "Low Carb",
+    "Dairy Free",
+    "Keto",
+  ];
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-background overflow-hidden relative">
-      <div className="flex-1 overflow-y-auto px-8 py-8">
-        <div className="max-w-4xl mx-auto pb-24">
-          <div className="flex items-center gap-2 text-xs font-medium text-textMuted mb-2">
-            <HomeIcon className="h-4 w-4" />
-            <button className="hover:text-textMain transition-colors" type="button" onClick={() => onNavigate("/")}>
-              Dashboard
+    <div className="flex-1 min-h-screen bg-background relative overflow-y-auto pb-24 px-8 pt-8">
+      {/* Sub-view Header */}
+      <header className="max-w-6xl mx-auto w-full flex justify-between items-center mb-8">
+        <div>
+          <h1 className="text-3xl font-bold text-textHeading tracking-tight">
+            {showTracker ? "Transformation & Progress" : "My Profile"}
+          </h1>
+          <p className="text-textMuted text-sm mt-1">
+            {showTracker
+              ? "Track your weight transformation and photo timeline."
+              : "Manage your personal health settings and preferences."}
+          </p>
+        </div>
+        
+        <div className="flex items-center gap-3">
+          {showTracker ? (
+            <button
+              onClick={() => setShowTracker(false)}
+              className="px-5 py-2.5 bg-white border border-border hover:bg-surfaceAlt text-textHeading rounded-full text-xs font-bold transition-all shadow-sm"
+            >
+              Back to Profile
             </button>
-            <BreadcrumbChevronIcon className="h-3 w-3" />
-            <span className="text-textMain">Profile Settings</span>
-          </div>
-
-          <div className="flex items-center justify-between mb-8">
-            <h1 className="text-2xl font-bold tracking-tight text-textMain">
-              Profile &amp; Journey
-            </h1>
-            <div className="flex bg-panel border border-panelBorder rounded-xl p-1">
-              <button
-                className={`px-4 py-1.5 text-sm font-bold rounded-lg transition-colors ${activeTab === 'preferences' ? 'bg-primary text-white' : 'text-textMuted hover:text-textMain'}`}
-                onClick={() => setActiveTab('preferences')}
-                type="button"
-              >
-                Preferences
-              </button>
-              <button
-                className={`px-4 py-1.5 text-sm font-bold rounded-lg transition-colors ${activeTab === 'transformation' ? 'bg-primary text-white' : 'text-textMuted hover:text-textMain'}`}
-                onClick={() => setActiveTab('transformation')}
-                type="button"
-              >
-                Transformation
-              </button>
-            </div>
-          </div>
-
-          {(errorMessage || errors.root?.message || saveMessage) && !isLoading && activeTab === 'preferences' && (
-            <div className={`mb-6 rounded-lg border p-4 text-sm font-medium ${
-              saveMessage && !errorMessage && !errors.root?.message
-                ? "border-success/50 bg-success/10 text-success"
-                : "border-danger/50 bg-danger/10 text-danger"
-            }`}>
-              {errorMessage || errors.root?.message || saveMessage}
-            </div>
+          ) : (
+            <button
+              onClick={() => setIsEditing(true)}
+              className="px-5 py-2.5 bg-white border border-border hover:bg-surfaceAlt text-textHeading rounded-full text-xs font-bold transition-all shadow-sm"
+            >
+              Edit Profile
+            </button>
           )}
 
-          {activeTab === 'transformation' ? (
-            <ProgressTracker onWeightUpdate={() => {
-              // Reload profile if weight was updated
-              fetchProfileRequest().then(res => {
-                reset(mapProfileToFormValues(res.data));
-                setProfile(res.data);
-              });
-            }} />
-          ) : (
-          <form id="profile-form" onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+          <div className="flex items-center justify-center w-10 h-10 rounded-full bg-[#EBF2EB] border border-[#D4E6D5] text-[#2C3E2B] font-bold text-sm shadow-sm">
+            AR
+          </div>
+        </div>
+      </header>
+
+      {/* Save success / error banners */}
+      {saveMessage && (
+        <div className="max-w-6xl mx-auto w-full mb-6 p-4 rounded-xl bg-[#EBF2EB] border border-[#D4E6D5] text-[#2C3E2B] text-sm font-medium">
+          {saveMessage}
+        </div>
+      )}
+      {errorMessage && (
+        <div className="max-w-6xl mx-auto w-full mb-6 p-4 rounded-xl bg-danger/10 border border-danger/20 text-danger text-sm font-medium">
+          {errorMessage}
+        </div>
+      )}
+
+      {/* Transformation Sub-view */}
+      {showTracker ? (
+        <div className="max-w-6xl mx-auto w-full">
+          <ProgressTracker />
+        </div>
+      ) : (
+        /* Main Profile View matching Profile.png */
+        <main className="max-w-6xl mx-auto w-full grid grid-cols-1 lg:grid-cols-[1.3fr_1fr] gap-8">
+          
+          {/* Left Column: Dietary Preferences & Account Settings */}
+          <div className="space-y-8">
             
-            {/* Personal Information */}
-            {profile && profile.bmi && (
-              <section className="rounded-2xl border border-panelBorder bg-panel p-6 mb-6">
-                <div className="flex items-start gap-3 mb-6">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-900/30 text-blue-400">
-                    <UserIcon className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <h2 className="text-base font-semibold text-textMain">Calculated Health Metrics</h2>
-                    <p className="text-xs text-textMuted mt-1">Based on your age, height, weight, and activity level</p>
-                  </div>
-                </div>
+            {/* Dietary Preferences Card */}
+            <section className="bg-white rounded-[24px] border border-border p-6 shadow-sm">
+              <h2 className="text-lg font-bold text-textHeading mb-4">Dietary Preferences</h2>
+              <p className="text-xs text-textMuted leading-relaxed mb-6">
+                Choose your dietary goals and restrictions to personalize your recommendations.
+              </p>
 
-                <div className="grid grid-cols-2 gap-6">
-                  <div className="rounded-xl border border-panelBorder bg-background p-4 flex flex-col justify-center">
-                    <div className="text-xs font-medium text-textMuted mb-1">Body Mass Index (BMI)</div>
-                    <div className="flex items-end gap-2">
-                      <div className="text-3xl font-bold text-textMain">{profile.bmi}</div>
-                      <div className={`text-sm font-medium mb-1 ${
-                        profile.bmiCategory === 'Normal weight' ? 'text-success' :
-                        profile.bmiCategory === 'Underweight' ? 'text-blue-400' :
-                        profile.bmiCategory === 'Overweight' ? 'text-orange-400' : 'text-danger'
-                      }`}>
-                        {profile.bmiCategory}
-                      </div>
+              {/* Tag capsules */}
+              <div className="grid grid-cols-2 gap-3 mb-6 max-w-md">
+                {preferenceTags.map((tag) => {
+                  const selected = dietaryRestrictions.includes(tag) || (tag === "Vegetarian" && dietaryRestrictions.includes("Vegetarian")) || (tag === "Gluten Free" && dietaryRestrictions.includes("Gluten-Free"));
+                  return (
+                    <button
+                      key={tag}
+                      type="button"
+                      onClick={() => toggleRestriction(tag === "Gluten Free" ? "Gluten-Free" : tag)}
+                      className={`py-3 rounded-full text-xs font-bold transition-all border text-center ${
+                        selected
+                          ? "bg-[#9DB89F] border-[#9DB89F] text-white shadow-sm"
+                          : "bg-white border-border text-textHeading hover:border-borderStrong"
+                      }`}
+                    >
+                      {tag}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="w-full h-px bg-[#F5F5F0] my-6" />
+
+              {/* Nut Allergy Switch */}
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setNutAllergyWarning(!nutAllergyWarning)}
+                  className={`w-11 h-6 rounded-full transition-colors relative focus:outline-none ${
+                    nutAllergyWarning ? "bg-[#9DB89F]" : "bg-border"
+                  }`}
+                >
+                  <span
+                    className={`absolute top-1 left-1 bg-white w-4 h-4 rounded-full transition-transform ${
+                      nutAllergyWarning ? "translate-x-5" : "translate-x-0"
+                    }`}
+                  />
+                </button>
+                <span className="text-xs font-semibold text-textHeading">Nut Allergy Warnings</span>
+              </div>
+            </section>
+
+            {/* Account Settings List */}
+            <section className="space-y-4">
+              <h3 className="text-base font-bold text-textHeading uppercase tracking-wider">Account Settings</h3>
+              
+              <div className="space-y-3">
+                {/* 1. Personal Information */}
+                <div 
+                  onClick={() => setIsEditing(true)}
+                  className="bg-white border border-border rounded-2xl p-4 flex justify-between items-center hover:shadow-md cursor-pointer transition-all"
+                >
+                  <div className="flex items-center gap-3.5">
+                    <div className="w-10 h-10 rounded-full bg-[#EBF2EB] flex items-center justify-center text-[#7A9E7E]">
+                      👤
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-textHeading text-sm">Personal Information</h4>
+                      <p className="text-xs text-textMuted mt-0.5">Update your name, age, and weight</p>
                     </div>
                   </div>
+                  <span className="text-textMuted text-lg font-bold">&gt;</span>
+                </div>
 
-                  <div className="rounded-xl border border-panelBorder bg-background p-4">
-                    <div className="text-xs font-medium text-textMuted mb-3">Daily Caloric Targets</div>
-                    <div className="space-y-2">
-                      <div className="flex justify-between text-sm">
-                        <span className="text-textMuted">Maintenance:</span>
-                        <span className="font-bold text-textMain">{profile.maintenanceCalories} kcal</span>
-                      </div>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-textMuted">Weight Loss:</span>
-                        <span className="font-bold text-blue-400">{profile.weightLossCalories} kcal</span>
-                      </div>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-textMuted">Weight Gain:</span>
-                        <span className="font-bold text-orange-400">{profile.weightGainCalories} kcal</span>
-                      </div>
+                {/* 3. Notifications */}
+                <div 
+                  onClick={() => alert("Notification settings coming soon...")}
+                  className="bg-white border border-border rounded-2xl p-4 flex justify-between items-center hover:shadow-md cursor-pointer transition-all"
+                >
+                  <div className="flex items-center gap-3.5">
+                    <div className="w-10 h-10 rounded-full bg-[#FEF9EB] flex items-center justify-center text-[#D4A847]">
+                      🔔
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-textHeading text-sm">Notifications</h4>
+                      <p className="text-xs text-textMuted mt-0.5">Manage your daily meal reminders</p>
                     </div>
                   </div>
+                  <span className="text-textMuted text-lg font-bold">&gt;</span>
                 </div>
-              </section>
-            )}
 
-            <section className="rounded-2xl border border-panelBorder bg-panel p-6">
-              <div className="flex items-start gap-3 mb-6">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-orange-900/30 text-primary">
-                  <UserIcon className="h-5 w-5" />
+                {/* 4. Privacy & Security */}
+                <div 
+                  onClick={() => alert("Privacy settings coming soon...")}
+                  className="bg-white border border-border rounded-2xl p-4 flex justify-between items-center hover:shadow-md cursor-pointer transition-all"
+                >
+                  <div className="flex items-center gap-3.5">
+                    <div className="w-10 h-10 rounded-full bg-[#EBF2F8] flex items-center justify-center text-[#7A9EBE]">
+                      🛡️
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-textHeading text-sm">Privacy &amp; Security</h4>
+                      <p className="text-xs text-textMuted mt-0.5">Password and data sharing</p>
+                    </div>
+                  </div>
+                  <span className="text-textMuted text-lg font-bold">&gt;</span>
                 </div>
-                <div>
-                  <h2 className="text-base font-semibold text-textMain">Personal Information</h2>
-                  <p className="text-xs text-textMuted mt-1">Basic details for personalized nutrition analysis</p>
+
+                {/* 5. Subscription */}
+                <div 
+                  onClick={() => alert("Subscription details...")}
+                  className="bg-white border border-border rounded-2xl p-4 flex justify-between items-center hover:shadow-md cursor-pointer transition-all"
+                >
+                  <div className="flex items-center gap-3.5">
+                    <div className="w-10 h-10 rounded-full bg-[#F5F6F1] flex items-center justify-center text-textHeading">
+                      💳
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-textHeading text-sm">Subscription</h4>
+                      <p className="text-xs text-textMuted mt-0.5">NutriTrack Pro • Active until Dec 2026</p>
+                    </div>
+                  </div>
+                  <span className="text-textMuted text-lg font-bold">&gt;</span>
+                </div>
+              </div>
+            </section>
+          </div>
+
+          {/* Right Column: Daily Targets & Apple Health & Logout */}
+          <div className="space-y-8">
+            
+            {/* Daily Targets Card */}
+            <section className="bg-white rounded-[24px] border border-border p-6 shadow-sm space-y-5">
+              <h3 className="font-bold text-textHeading text-sm">Daily Targets</h3>
+              
+              <div className="space-y-4">
+                {/* Calories Progress Bar */}
+                <div className="space-y-1">
+                  <div className="flex justify-between items-baseline text-xs font-semibold">
+                    <span className="text-textHeading">Calories</span>
+                    <span className="text-textHeading">{calTarget} kcal</span>
+                  </div>
+                  <div className="w-full bg-[#F5F5F0] h-2.5 rounded-full overflow-hidden">
+                    <div className="bg-[#9DB89F] h-full rounded-full" style={{ width: "70%" }} />
+                  </div>
+                </div>
+
+                {/* Protein Progress Bar */}
+                <div className="space-y-1">
+                  <div className="flex justify-between items-baseline text-xs font-semibold">
+                    <span className="text-textHeading">Protein</span>
+                    <span className="text-textHeading">{proteinGrams}g</span>
+                  </div>
+                  <div className="w-full bg-[#F5F5F0] h-2.5 rounded-full overflow-hidden">
+                    <div className="bg-[#9DB89F] h-full rounded-full" style={{ width: "60%" }} />
+                  </div>
+                </div>
+
+                {/* Carbs Progress Bar */}
+                <div className="space-y-1">
+                  <div className="flex justify-between items-baseline text-xs font-semibold">
+                    <span className="text-textHeading">Carbs</span>
+                    <span className="text-textHeading">{carbsGrams}g</span>
+                  </div>
+                  <div className="w-full bg-[#F5F5F0] h-2.5 rounded-full overflow-hidden">
+                    <div className="bg-[#E8815A] h-full rounded-full" style={{ width: "40%" }} />
+                  </div>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-6">
+              <div className="text-center pt-3 border-t border-[#F5F5F0]">
+                <button 
+                  onClick={() => setIsEditing(true)}
+                  className="text-xs font-bold text-[#7A9E7E] hover:text-[#5C7A60] transition-colors"
+                >
+                  Adjust Goals
+                </button>
+              </div>
+            </section>
+
+            {/* Apple Health Connected Card */}
+            <section className="bg-white rounded-[24px] border border-border p-6 shadow-sm space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-white border border-border flex items-center justify-center text-rose shadow-sm">
+                  ⌚
+                </div>
                 <div>
-                  <label className="block text-xs font-medium text-textMain mb-2">
-                    Full Name <span className="text-danger">*</span>
-                  </label>
+                  <h4 className="font-bold text-textHeading text-sm">Apple Health Connected</h4>
+                  <p className="text-xs text-textMuted mt-0.5">Synced 5 mins ago</p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => alert("Syncing with Apple Health...")}
+                className="w-full py-2.5 bg-white border border-[#E2E4DC] hover:border-primary text-textHeading rounded-xl text-xs font-bold transition-all shadow-sm"
+              >
+                Sync Now
+              </button>
+            </section>
+
+            {/* Sign Out Button */}
+            <button
+              onClick={handleSignOut}
+              className="w-full py-3.5 bg-[#E38F8F] hover:bg-[#D47A7A] text-white rounded-full text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-2"
+            >
+              <span>🚪</span> Sign Out
+            </button>
+          </div>
+        </main>
+      )}
+
+      {/* Edit Profile Form Overlay Modal */}
+      {isEditing && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-[32px] w-full max-w-2xl border border-border shadow-2xl relative p-8 max-h-[90vh] overflow-y-auto">
+            {/* Close Button */}
+            <button 
+              onClick={() => setIsEditing(false)}
+              className="absolute top-6 right-6 text-textMuted hover:text-textHeading text-xl font-bold"
+            >
+              ✕
+            </button>
+            
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-textHeading tracking-tight">Edit Profile &amp; Goals</h2>
+              <p className="text-textMuted text-xs mt-1">Configure your personal physical dimensions and nutrient targets</p>
+            </div>
+
+            <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+              {/* Form fields */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-textMuted mb-1">Full Name</label>
                   <input
-                    className="w-full rounded-lg border border-panelBorder bg-background px-4 py-2.5 text-sm text-textMain placeholder-textMuted focus:outline-none focus:border-primary"
+                    className="w-full rounded-xl border border-border bg-background px-4 py-2 text-sm text-textHeading focus:outline-none focus:border-[#7A9E7E]"
                     {...register("fullName")}
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-textMain mb-2">
-                    Email Address <span className="text-danger">*</span>
-                  </label>
+                  <label className="block text-xs font-semibold text-textMuted mb-1">Email Address</label>
                   <input
-                    className="w-full rounded-lg border border-panelBorder bg-background px-4 py-2.5 text-sm text-textMain placeholder-textMuted focus:outline-none focus:border-primary"
+                    className="w-full rounded-xl border border-border bg-background px-4 py-2 text-sm text-textHeading focus:outline-none focus:border-[#7A9E7E]"
+                    type="email"
                     {...register("email")}
                   />
                 </div>
-                
                 <div>
-                  <label className="block text-xs font-medium text-textMain mb-2">
-                    Age <span className="text-danger">*</span>
-                  </label>
-                  <div className="relative">
-                    <select
-                      className="w-full appearance-none rounded-lg border border-panelBorder bg-background px-4 py-2.5 text-sm text-textMain focus:outline-none focus:border-primary"
-                      {...register("age", { valueAsNumber: true })}
-                    >
-                      <option value="" disabled>Select age</option>
-                      {Array.from({ length: 83 }, (_, i) => i + 18).map(age => (
-                        <option key={age} value={age}>{age} years</option>
-                      ))}
-                    </select>
-                    <ChevronDownIcon className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-textMuted pointer-events-none" />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-textMain mb-2">
-                    Gender <span className="text-danger">*</span>
-                  </label>
-                  <div className="relative">
-                    <select
-                      className="w-full appearance-none rounded-lg border border-panelBorder bg-background px-4 py-2.5 text-sm text-textMain focus:outline-none focus:border-primary"
-                      {...register("gender")}
-                    >
-                      {genderOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                    </select>
-                    <ChevronDownIcon className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-textMuted pointer-events-none" />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-textMain mb-2">
-                    Activity Level <span className="text-danger">*</span>
-                  </label>
-                  <div className="relative">
-                    <select
-                      className="w-full appearance-none rounded-lg border border-panelBorder bg-background px-4 py-2.5 text-sm text-textMain focus:outline-none focus:border-primary"
-                      {...register("activityLevel")}
-                    >
-                      {activityOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                    </select>
-                    <ChevronDownIcon className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-textMuted pointer-events-none" />
-                  </div>
-                </div>
-                <div className="hidden"></div>
-
-                <div>
-                  <label className="block text-xs font-medium text-textMain mb-2">
-                    Height (cm) <span className="text-danger">*</span>
-                  </label>
+                  <label className="block text-xs font-semibold text-textMuted mb-1">Age</label>
                   <input
                     type="number"
-                    className="w-full rounded-lg border border-panelBorder bg-background px-4 py-2.5 text-sm text-textMain placeholder-textMuted focus:outline-none focus:border-primary"
+                    className="w-full rounded-xl border border-border bg-background px-4 py-2 text-sm text-textHeading focus:outline-none focus:border-[#7A9E7E]"
+                    {...register("age", { valueAsNumber: true })}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-textMuted mb-1">Gender</label>
+                  <select
+                    className="w-full rounded-xl border border-border bg-background px-4 py-2 text-sm text-textHeading focus:outline-none focus:border-[#7A9E7E]"
+                    {...register("gender")}
+                  >
+                    {genderOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-textMuted mb-1">Height (cm)</label>
+                  <input
+                    type="number"
+                    className="w-full rounded-xl border border-border bg-background px-4 py-2 text-sm text-textHeading focus:outline-none focus:border-[#7A9E7E]"
                     {...register("height", { valueAsNumber: true })}
                   />
                 </div>
-                
                 <div>
-                  <label className="block text-xs font-medium text-textMain mb-2">
-                    Weight (kg) <span className="text-danger">*</span>
-                  </label>
+                  <label className="block text-xs font-semibold text-textMuted mb-1">Weight (kg)</label>
                   <input
                     type="number"
-                    className="w-full rounded-lg border border-panelBorder bg-background px-4 py-2.5 text-sm text-textMain placeholder-textMuted focus:outline-none focus:border-primary"
+                    className="w-full rounded-xl border border-border bg-background px-4 py-2 text-sm text-textHeading focus:outline-none focus:border-[#7A9E7E]"
                     {...register("weight", { valueAsNumber: true })}
                   />
                 </div>
-
-                <div className="col-span-2 sm:col-span-1">
-                  <label className="block text-xs font-medium text-textMain mb-2">
-                    Diet Mode Strategy <span className="text-danger">*</span>
-                  </label>
-                  <div className="relative">
-                    <select
-                      className="w-full appearance-none rounded-lg border border-panelBorder bg-purple-900/10 px-4 py-2.5 text-sm font-semibold text-purple-400 focus:outline-none focus:border-purple-500 transition-colors cursor-pointer"
-                      {...register("dietMode")}
-                    >
-                      {dietModeOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                    </select>
-                    <ChevronDownIcon className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-purple-400 pointer-events-none" />
-                  </div>
-                </div>
-              </div>
-            </section>
-
-            {/* Dietary Preferences */}
-            <section className="rounded-2xl border border-panelBorder bg-panel p-6">
-              <div className="flex items-start gap-3 mb-6">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-purple-900/30 text-purple-400">
-                  <ForkKnifeIcon className="h-5 w-5" />
-                </div>
                 <div>
-                  <h2 className="text-base font-semibold text-textMain">Dietary Preferences</h2>
-                  <p className="text-xs text-textMuted mt-1">Customize your nutrition analysis based on your dietary needs</p>
-                </div>
-              </div>
-
-              <div className="mb-6">
-                <h3 className="text-sm font-semibold text-textMain mb-4">Dietary Restrictions</h3>
-                <div className="grid grid-cols-2 gap-4">
-                  {dietaryOptions.map(opt => (
-                    <CheckboxLabel 
-                      key={opt.label}
-                      label={opt.label}
-                      description={opt.description}
-                      isChecked={dietaryRestrictions.includes(opt.label)}
-                      onClick={() => toggleArrayField("dietaryRestrictions", opt.label)}
-                    />
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <h3 className="text-sm font-semibold text-textMain mb-4">Food Allergies</h3>
-                <div className="grid grid-cols-3 gap-4">
-                  {allergyOptions.map(opt => (
-                    <CheckboxLabel 
-                      key={opt}
-                      label={opt}
-                      isChecked={foodAllergies.includes(opt)}
-                      onClick={() => toggleArrayField("foodAllergies", opt)}
-                    />
-                  ))}
-                </div>
-              </div>
-            </section>
-
-            {/* Health Goals */}
-            <section className="rounded-2xl border border-panelBorder bg-panel p-6">
-              <div className="flex items-start gap-3 mb-6">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-900/30 text-success">
-                  <TargetIcon className="h-5 w-5" />
-                </div>
-                <div>
-                  <h2 className="text-base font-semibold text-textMain">Health Goals</h2>
-                  <p className="text-xs text-textMuted mt-1">Define your health objectives for personalized recommendations</p>
-                </div>
-              </div>
-
-              <div className="mb-6">
-                <label className="block text-xs font-medium text-textMain mb-2">
-                  Primary Health Goal <span className="text-danger">*</span>
-                </label>
-                <div className="relative">
+                  <label className="block text-xs font-semibold text-textMuted mb-1">Activity Level</label>
                   <select
-                    className="w-full appearance-none rounded-lg border border-panelBorder bg-background px-4 py-2.5 text-sm text-textMain focus:outline-none focus:border-primary"
+                    className="w-full rounded-xl border border-border bg-background px-4 py-2 text-sm text-textHeading focus:outline-none focus:border-[#7A9E7E]"
+                    {...register("activityLevel")}
+                  >
+                    {activityOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-textMuted mb-1">Diet Strategy</label>
+                  <select
+                    className="w-full rounded-xl border border-border bg-background px-4 py-2 text-sm text-textHeading focus:outline-none focus:border-[#7A9E7E]"
+                    {...register("dietMode")}
+                  >
+                    {dietModeOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                  </select>
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-semibold text-textMuted mb-1">Primary Health Goal</label>
+                  <select
+                    className="w-full rounded-xl border border-border bg-background px-4 py-2 text-sm text-textHeading focus:outline-none focus:border-[#7A9E7E]"
                     {...register("primaryGoal")}
                   >
                     {primaryGoalOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
                   </select>
-                  <ChevronDownIcon className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-textMuted pointer-events-none" />
                 </div>
               </div>
 
-              <div>
-                <h3 className="text-sm font-semibold text-textMain mb-4">Health Conditions</h3>
-                <p className="text-xs text-textMuted mb-4 -mt-2">Select any health conditions that may affect your dietary needs</p>
-                <div className="grid grid-cols-2 gap-4">
-                  {healthConditionsOptions.map(opt => (
-                    <CheckboxLabel 
-                      key={opt.label}
-                      label={opt.label}
-                      description={opt.description}
-                      isChecked={healthGoals.includes(opt.label)}
-                      onClick={() => toggleArrayField("healthGoals", opt.label)}
-                    />
-                  ))}
-                </div>
-              </div>
-            </section>
-
-            {/* Nutritional Targets */}
-            <section className="rounded-2xl border border-panelBorder bg-panel p-6">
-              <div className="flex items-start gap-3 mb-6">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-orange-900/30 text-primary">
-                  <FireIcon className="h-5 w-5" />
-                </div>
-                <div>
-                  <h2 className="text-base font-semibold text-textMain">Nutritional Targets</h2>
-                  <p className="text-xs text-textMuted mt-1">Set your daily calorie and macronutrient goals</p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-6 mb-6">
-                <div>
-                  <label className="block text-xs font-medium text-textMain mb-2">
-                    Daily Calorie Target <span className="text-danger">*</span>
-                  </label>
-                  <input
-                    type="number"
-                    className="w-full rounded-lg border border-panelBorder bg-background px-4 py-2.5 text-sm text-textMain focus:outline-none focus:border-primary mb-1"
-                    {...register("nutritionalTargets.calories", { valueAsNumber: true })}
-                  />
-                  <div className="text-[10px] text-textMuted">Recommended daily calorie intake</div>
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-textMain mb-2">
-                    Daily Water Target (L) <span className="text-danger">*</span>
-                  </label>
-                  <input
-                    type="number" step="0.1"
-                    className="w-full rounded-lg border border-panelBorder bg-background px-4 py-2.5 text-sm text-textMain focus:outline-none focus:border-primary mb-1"
-                    {...register("nutritionalTargets.water", { valueAsNumber: true })}
-                  />
-                  <div className="text-[10px] text-textMuted">Daily water intake goal</div>
-                </div>
-              </div>
-
-              <div className="mb-6">
-                <h3 className="text-sm font-semibold text-textMain mb-4">Macronutrient Distribution</h3>
-                <div className="grid grid-cols-3 gap-6">
+              {/* Targets */}
+              <div className="pt-4 border-t border-[#F5F5F0]">
+                <h4 className="font-bold text-textHeading text-sm mb-4">Nutritional Targets</h4>
+                <div className="grid grid-cols-2 gap-4 mb-4">
                   <div>
-                    <label className="block text-xs font-medium text-textMain mb-2">Protein (%)</label>
+                    <label className="block text-xs font-semibold text-textMuted mb-1">Calorie Target</label>
                     <input
                       type="number"
-                      className="w-full rounded-lg border border-panelBorder bg-background px-4 py-2.5 text-sm text-textMain focus:outline-none focus:border-primary mb-1"
+                      className="w-full rounded-xl border border-border bg-background px-4 py-2 text-sm text-textHeading focus:outline-none focus:border-[#7A9E7E]"
+                      {...register("nutritionalTargets.calories", { valueAsNumber: true })}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-textMuted mb-1">Water Target (L)</label>
+                    <input
+                      type="number" step="0.1"
+                      className="w-full rounded-xl border border-border bg-background px-4 py-2 text-sm text-textHeading focus:outline-none focus:border-[#7A9E7E]"
+                      {...register("nutritionalTargets.water", { valueAsNumber: true })}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-textMuted mb-1">Protein (%)</label>
+                    <input
+                      type="number"
+                      className="w-full rounded-xl border border-border bg-background px-4 py-2 text-sm text-textHeading focus:outline-none focus:border-[#7A9E7E]"
                       {...register("nutritionalTargets.protein", { valueAsNumber: true })}
                     />
-                    <div className="text-[10px] text-textMuted">≈ {Math.round((watch("nutritionalTargets.calories") * (protein/100)) / 4)}g daily</div>
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-textMain mb-2">Carbohydrates (%)</label>
+                    <label className="block text-xs font-semibold text-textMuted mb-1">Carbs (%)</label>
                     <input
                       type="number"
-                      className="w-full rounded-lg border border-panelBorder bg-background px-4 py-2.5 text-sm text-textMain focus:outline-none focus:border-primary mb-1"
+                      className="w-full rounded-xl border border-border bg-background px-4 py-2 text-sm text-textHeading focus:outline-none focus:border-[#7A9E7E]"
                       {...register("nutritionalTargets.carbs", { valueAsNumber: true })}
                     />
-                    <div className="text-[10px] text-textMuted">≈ {Math.round((watch("nutritionalTargets.calories") * (carbs/100)) / 4)}g daily</div>
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-textMain mb-2">Fat (%)</label>
+                    <label className="block text-xs font-semibold text-textMuted mb-1">Fat (%)</label>
                     <input
                       type="number"
-                      className="w-full rounded-lg border border-panelBorder bg-background px-4 py-2.5 text-sm text-textMain focus:outline-none focus:border-primary mb-1"
+                      className="w-full rounded-xl border border-border bg-background px-4 py-2 text-sm text-textHeading focus:outline-none focus:border-[#7A9E7E]"
                       {...register("nutritionalTargets.fat", { valueAsNumber: true })}
                     />
-                    <div className="text-[10px] text-textMuted">≈ {Math.round((watch("nutritionalTargets.calories") * (fat/100)) / 9)}g daily</div>
                   </div>
                 </div>
-                
-                <div className="flex justify-between items-center mt-4">
-                  <span className="text-xs text-textMuted">Total Percentage:</span>
-                  <span className={`text-sm font-bold ${totalMacroPercent === 100 ? 'text-success' : 'text-danger'}`}>
-                    {totalMacroPercent}%
-                  </span>
-                </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-6 pt-6 border-t border-panelBorder">
-                <div>
-                  <label className="block text-xs font-medium text-textMain mb-2">Daily Fiber Target (g)</label>
-                  <input
-                    type="number"
-                    className="w-full rounded-lg border border-panelBorder bg-background px-4 py-2.5 text-sm text-textMain focus:outline-none focus:border-primary mb-1"
-                    {...register("nutritionalTargets.fiber", { valueAsNumber: true })}
-                  />
-                  <div className="text-[10px] text-textMuted">Recommended daily fiber intake</div>
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-textMain mb-2">Daily Sodium Limit (mg)</label>
-                  <input
-                    type="number"
-                    className="w-full rounded-lg border border-panelBorder bg-background px-4 py-2.5 text-sm text-textMain focus:outline-none focus:border-primary mb-1"
-                    {...register("nutritionalTargets.sodium", { valueAsNumber: true })}
-                  />
-                  <div className="text-[10px] text-textMuted">Maximum daily sodium intake</div>
-                </div>
+              <div className="flex justify-end gap-3 pt-6 border-t border-[#F5F5F0]">
+                <button
+                  type="button"
+                  onClick={() => setIsEditing(false)}
+                  className="px-5 py-2.5 border border-border hover:bg-surfaceAlt text-textHeading text-xs font-bold rounded-xl transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="px-5 py-2.5 bg-[#9DB89F] hover:bg-[#7A9E7E] text-white text-xs font-bold rounded-xl transition-all shadow-sm"
+                >
+                  {isSubmitting ? "Saving..." : "Save Settings"}
+                </button>
               </div>
-            </section>
-          </form>
-          )}
-        </div>
-      </div>
-
-      {/* Sticky Bottom Bar */}
-      <div className="absolute bottom-0 left-0 right-0 border-t border-panelBorder bg-background px-8 py-4">
-        <div className="max-w-4xl mx-auto flex items-center justify-between">
-          <div className="text-sm text-textMuted">
-            {isDirty ? "Unsaved changes" : "No changes to save"}
+            </form>
           </div>
-          <button
-            form="profile-form"
-            type="submit"
-            disabled={isLoading || isSubmitting || !isDirty}
-            className="px-6 py-2 rounded-lg bg-panel border border-panelBorder text-sm font-medium text-textMain disabled:opacity-50 hover:bg-panelBorder transition-colors flex items-center gap-2"
-          >
-            {isLoading ? "Loading..." : isSubmitting ? "Saving..." : "Save Profile"}
-          </button>
         </div>
-      </div>
+      )}
     </div>
   );
 };

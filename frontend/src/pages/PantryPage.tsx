@@ -1,49 +1,36 @@
-import { useCallback, useRef, useState } from "react";
-import { SparklesIcon, CameraIcon, FireIcon, ProteinIcon, BoltIcon } from "../components/icons";
+import { useRef, useState } from "react";
+import { SparklesIcon, CameraIcon } from "../components/icons";
 import { useUploadStore } from "../store/uploadStore";
+
+// Mock data to match mockup screenshot
+const mockPantryItems = [
+  { name: "Avocados", details: "3 units • Added Oct 22", tag: "Fresh", color: "#EBF2EB", text: "#7A9E7E", icon: "🥑" },
+  { name: "Chicken Breast", details: "500g • Added Oct 24", tag: "Low", color: "#FEF0EB", text: "#E8815A", icon: "🍗" },
+  { name: "Quinoa", details: "1.2kg • Added Sep 15", tag: "Fresh", color: "#FEF9EB", text: "#D4A847", icon: "🌾" },
+  { name: "Greek Yogurt", details: "1 tub • Added Oct 20", tag: "Fresh", color: "#EBF2F8", text: "#7A9EBE", icon: "🥛" },
+  { name: "Spinach", details: "100g • Added Oct 25", tag: "Low", color: "#EBF2EB", text: "#7A9E7E", icon: "🥬" },
+];
+
+const mockRecipes = [
+  { name: "Zesty Quinoa Salad", time: "15 min", match: "90%", img: "https://images.unsplash.com/photo-1505576399279-565b52d4ac71?w=600&auto=format&fit=crop&q=80" },
+  { name: "Creamy Chicken & Rice", time: "20 min", match: "85%", img: "https://images.unsplash.com/photo-1512058564366-18510be2db19?w=600&auto=format&fit=crop&q=80" },
+  { name: "Green Power Smoothie", time: "5 min", match: "100%", img: "https://images.unsplash.com/photo-1553530666-ba11a7da3888?w=600&auto=format&fit=crop&q=80" },
+];
 
 export const PantryPage = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  
+  const [filter, setFilter] = useState<"All" | "Fresh" | "Dry">("All");
+
   const {
     pantryAnalysis,
-    dragActive,
     isUploading,
     errorMessage,
     progressMessage,
-    setDragActive,
     uploadPantryImage,
     setPantryAnalysis
   } = useUploadStore();
 
-  const handleDrag = useCallback(
-    (e: React.DragEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
-      if (e.type === "dragenter" || e.type === "dragover") {
-        setDragActive(true);
-      } else if (e.type === "dragleave") {
-        setDragActive(false);
-      }
-    },
-    [setDragActive],
-  );
-
-  const handleDrop = useCallback(
-    async (e: React.DragEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
-      setDragActive(false);
-
-      if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-        await uploadPantryImage(e.dataTransfer.files[0]);
-      }
-    },
-    [setDragActive, uploadPantryImage],
-  );
-
-  const handleChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    e.preventDefault();
+  const handleFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       await uploadPantryImage(e.target.files[0]);
     }
@@ -53,171 +40,212 @@ export const PantryPage = () => {
     setPantryAnalysis(null);
   };
 
-  if (pantryAnalysis) {
-    return (
-      <div className="max-w-5xl mx-auto space-y-8 pb-20 fade-in">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-textMain tracking-tight">Pantry AI Chef</h1>
-            <p className="text-textMuted text-sm mt-1">
-              Recipes generated using ingredients found in your photo.
-            </p>
-          </div>
+  const triggerUpload = () => {
+    fileInputRef.current?.click();
+  };
+
+  return (
+    <div className="flex-1 min-h-screen bg-background relative overflow-y-auto pb-24 px-8 pt-8">
+      {/* Hidden file input */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/jpg"
+        onChange={handleFileSelected}
+        className="hidden"
+      />
+
+      {/* Header */}
+      <header className="max-w-6xl mx-auto w-full flex justify-between items-center mb-8">
+        <div>
+          <h1 className="text-3xl font-bold text-textHeading tracking-tight">My Pantry</h1>
+          <p className="text-textMuted text-sm mt-1">
+            Manage your ingredients and discover recipes.
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
           <button
-            onClick={handleReset}
-            className="px-4 py-2 bg-panel border border-panelBorder rounded-lg text-sm font-medium hover:border-primary transition-colors"
+            onClick={triggerUpload}
+            disabled={isUploading}
+            className="flex items-center gap-1.5 px-5 py-2.5 bg-[#9DB89F] hover:bg-[#7A9E7E] text-white rounded-full text-xs font-bold transition-all shadow-sm"
           >
-            Scan Another Fridge
+            {isUploading ? (
+              <div className="animate-spin h-3.5 w-3.5 border-2 border-white border-t-transparent rounded-full" />
+            ) : (
+              <span className="text-sm font-semibold">+</span>
+            )}
+            Add Ingredient
+          </button>
+          
+          <button className="w-10 h-10 rounded-full bg-white flex items-center justify-center border border-border hover:bg-surfaceAlt text-textHeading transition-colors shadow-sm">
+            🛒
           </button>
         </div>
+      </header>
 
-        {/* Ingredients Found */}
-        <div className="bg-panel border border-panelBorder rounded-2xl p-6">
-          <h2 className="text-sm font-bold text-textMuted uppercase tracking-wider mb-4">Identified Ingredients</h2>
-          <div className="flex flex-wrap gap-2">
-            {pantryAnalysis.identifiedIngredients.map((ingredient, idx) => (
-              <div key={idx} className="px-3 py-1.5 bg-primary/10 border border-primary/20 text-primary rounded-full text-sm font-medium">
-                {ingredient}
+      {/* Upload/Progress overlay */}
+      {isUploading && (
+        <div className="max-w-6xl mx-auto w-full mb-6 p-4 rounded-xl bg-[#EBF2EB] border border-[#D4E6D5] text-[#2C3E2B] text-sm font-medium flex items-center gap-3">
+          <div className="animate-spin h-4 w-4 border-2 border-primary border-t-transparent rounded-full" />
+          <span>{progressMessage || "Analyzing ingredients..."}</span>
+        </div>
+      )}
+
+      {errorMessage && (
+        <div className="max-w-6xl mx-auto w-full mb-6 p-4 rounded-xl bg-danger/10 border border-danger/20 text-danger text-sm font-medium">
+          {errorMessage}
+        </div>
+      )}
+
+      {/* Main Grid Content */}
+      <main className="max-w-6xl mx-auto w-full grid grid-cols-1 lg:grid-cols-[1.25fr_1fr] gap-8 mb-8">
+        
+        {/* Left Column (Current Inventory) */}
+        <div className="space-y-6">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-lg font-bold text-textHeading">Current Inventory</h2>
+            
+            {/* Category Pills */}
+            <div className="bg-[#E2E4DC]/40 border border-border rounded-full p-1 flex">
+              {(["All", "Fresh", "Dry"] as const).map((opt) => (
+                <button
+                  key={opt}
+                  onClick={() => setFilter(opt)}
+                  className={`px-3.5 py-1 rounded-full text-xs font-bold transition-all ${
+                    filter === opt 
+                      ? "bg-white text-textHeading shadow-sm" 
+                      : "text-textMuted hover:text-textHeading"
+                  }`}
+                >
+                  {opt}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Inventory Cards Stack */}
+          <div className="space-y-3">
+            {(pantryAnalysis ? pantryAnalysis.identifiedIngredients.map((ing, i) => ({
+              name: ing,
+              details: "Added today",
+              tag: "Fresh",
+              color: "#EBF2EB",
+              text: "#7A9E7E",
+              icon: "🥬"
+            })) : mockPantryItems).map((item) => (
+              <div 
+                key={item.name} 
+                className="bg-white border border-border rounded-2xl p-4 flex justify-between items-center shadow-sm hover:shadow-md transition-shadow"
+              >
+                <div className="flex gap-3 items-center">
+                  <div className="w-10 h-10 rounded-xl bg-[#F5F6F1] border border-border flex items-center justify-center text-lg select-none">
+                    {item.icon}
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-textHeading text-sm capitalize">{item.name}</h4>
+                    <p className="text-xs text-textMuted mt-0.5">{item.details}</p>
+                  </div>
+                </div>
+                <span className="px-2.5 py-0.5 rounded-full bg-[#F5F5F0] border border-border text-[10px] font-bold text-textMuted uppercase">
+                  {item.tag}
+                </span>
               </div>
             ))}
           </div>
+
+          {/* View All Ingredients Button */}
+          <button className="w-full py-2.5 bg-white border border-[#E2E4DC] hover:border-[#7A9E7E] text-textMuted hover:text-[#7A9E7E] rounded-xl text-xs font-bold transition-all shadow-sm">
+            View All Ingredients
+          </button>
         </div>
 
-        {/* Recipes */}
-        <h2 className="text-xl font-bold text-textMain pt-4">Suggested Recipes</h2>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {pantryAnalysis.recipes.map((recipe, idx) => (
-            <div key={idx} className="bg-panel border border-panelBorder rounded-2xl overflow-hidden hover:border-primary/50 transition-colors flex flex-col slide-up" style={{ animationDelay: `${idx * 100}ms` }}>
-              <div className="p-6 flex-1 flex flex-col">
-                <div className="text-xs font-bold text-primary tracking-wider uppercase mb-2">
-                  ⏱ {recipe.prepTime}
-                </div>
-                <h3 className="text-xl font-bold text-textMain mb-2 leading-tight">{recipe.name}</h3>
-                <p className="text-sm text-textMuted mb-6 flex-1">{recipe.description}</p>
-                
-                {/* Macros */}
-                <div className="grid grid-cols-4 gap-2 mb-6 bg-background rounded-xl p-3 border border-panelBorder">
-                  <div className="text-center">
-                    <div className="text-[10px] text-textMuted font-medium uppercase">Kcal</div>
-                    <div className="font-bold text-textMain">{recipe.calories}</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-[10px] text-textMuted font-medium uppercase">Pro</div>
-                    <div className="font-bold text-blue-500">{recipe.protein}g</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-[10px] text-textMuted font-medium uppercase">Carb</div>
-                    <div className="font-bold text-green-500">{recipe.carbs}g</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-[10px] text-textMuted font-medium uppercase">Fat</div>
-                    <div className="font-bold text-yellow-500">{recipe.fat}g</div>
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  <div>
-                    <h4 className="text-xs font-bold text-textMain uppercase mb-2">You need:</h4>
-                    <ul className="text-sm text-textMuted space-y-1">
-                      {recipe.ingredients.map((ing, i) => (
-                        <li key={i} className="flex items-start gap-2">
-                          <span className="text-primary mt-1">•</span> {ing}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                  
-                  <div>
-                    <h4 className="text-xs font-bold text-textMain uppercase mb-2">Instructions:</h4>
-                    <ol className="text-sm text-textMuted space-y-2 list-decimal list-inside marker:text-primary marker:font-bold">
-                      {recipe.instructions.map((inst, i) => (
-                        <li key={i}>{inst}</li>
-                      ))}
-                    </ol>
-                  </div>
-                </div>
-              </div>
+        {/* Right Column (Recipe AI suggestions) */}
+        <div className="space-y-8">
+          
+          {/* Recipe AI Header Card */}
+          <section className="bg-white rounded-[24px] border border-border p-6 shadow-sm space-y-4">
+            <div className="flex items-center gap-2 text-textHeading">
+              <span className="text-lg">✨</span>
+              <h3 className="font-bold text-base">Recipe AI</h3>
             </div>
-          ))}
-        </div>
-      </div>
-    );
-  }
+            <p className="text-xs text-textMuted leading-relaxed">
+              We found {pantryAnalysis ? pantryAnalysis.recipes.length : 12} recipes you can make with your current pantry items.
+            </p>
+            <button
+              onClick={triggerUpload}
+              className="w-full py-2.5 bg-[#9DB89F] hover:bg-[#7A9E7E] text-white rounded-xl text-xs font-bold transition-all shadow-sm"
+            >
+              Generate New Ideas
+            </button>
+          </section>
 
-  return (
-    <div className="max-w-3xl mx-auto py-10 fade-in">
-      <div className="text-center mb-10">
-        <h1 className="text-3xl font-bold text-textMain tracking-tight mb-3">Pantry AI Chef</h1>
-        <p className="text-textMuted max-w-lg mx-auto">
-          Snap a picture of your open fridge, pantry, or ingredients on the counter. Our AI will instantly identify them and generate healthy recipes that fit your diet!
-        </p>
-      </div>
-
-      <div
-        className={`relative overflow-hidden rounded-3xl border-2 border-dashed transition-all duration-300 ${
-          dragActive 
-            ? "border-primary bg-primary/5 scale-[1.02]" 
-            : "border-panelBorder bg-panel hover:border-primary/50 hover:bg-panel/80"
-        }`}
-        onDragEnter={handleDrag}
-        onDragLeave={handleDrag}
-        onDragOver={handleDrag}
-        onDrop={handleDrop}
-      >
-        <div className="absolute top-0 right-0 p-8 opacity-5">
-          <SparklesIcon className="w-64 h-64 text-primary rotate-12" />
-        </div>
-
-        <div className="relative p-12 flex flex-col items-center justify-center text-center min-h-[400px]">
-          {isUploading ? (
-            <div className="flex flex-col items-center space-y-6">
-              <div className="relative w-20 h-20">
-                <div className="absolute inset-0 bg-primary/20 rounded-full animate-ping"></div>
-                <div className="relative bg-primary text-white p-5 rounded-full flex items-center justify-center">
-                  <SparklesIcon className="w-10 h-10 animate-pulse" />
+          {/* Top Matches Recipes List */}
+          <div>
+            <h3 className="text-base font-bold text-textHeading mb-4 uppercase tracking-wider">Top Matches</h3>
+            <div className="space-y-4">
+              {(pantryAnalysis ? pantryAnalysis.recipes.map((r, idx) => ({
+                name: r.name,
+                time: r.prepTime,
+                match: "95%",
+                img: getMealImage(r.name)
+              })) : mockRecipes).map((recipe, index) => (
+                <div key={index} className="bg-white border border-border rounded-2xl p-3 flex gap-4 hover:shadow-md transition-shadow relative">
+                  <img
+                    src={recipe.img}
+                    alt={recipe.name}
+                    className="w-20 h-20 rounded-xl object-cover shrink-0"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex justify-between items-start">
+                      <h4 className="font-bold text-textHeading text-sm truncate capitalize">{recipe.name}</h4>
+                      <button className="text-textMuted hover:text-rose-500 text-sm">❤️</button>
+                    </div>
+                    <div className="flex items-center gap-3 text-xs text-textMuted mt-1.5 font-semibold">
+                      <span>⏱ {recipe.time}</span>
+                      <span>•</span>
+                      <span className="text-[#10B981]">✓ {recipe.match} match</span>
+                    </div>
+                    <button 
+                      onClick={() => alert(`Recipe details: ${recipe.name}`)}
+                      className="text-xs font-bold text-[#7A9E7E] hover:text-[#5C7A60] transition-colors mt-2.5 block text-left"
+                    >
+                      View Recipe
+                    </button>
+                  </div>
                 </div>
-              </div>
-              <div>
-                <h3 className="text-xl font-bold text-textMain">Analyzing Ingredients...</h3>
-                <p className="text-textMuted mt-2">{progressMessage || "Generating recipes..."}</p>
-              </div>
+              ))}
             </div>
-          ) : (
-            <>
-              <div className="bg-background p-6 rounded-full shadow-xl shadow-black/5 mb-8 group-hover:scale-110 transition-transform duration-300">
-                <CameraIcon className="w-12 h-12 text-primary" />
-              </div>
-              <h3 className="text-2xl font-bold text-textMain mb-3">
-                Drop a photo of your fridge here
-              </h3>
-              <p className="text-textMuted mb-8 max-w-sm">
-                Supports JPG, PNG, and JPEG formats up to 10MB
-              </p>
-              
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/jpeg,image/png,image/jpg"
-                onChange={handleChange}
-                className="hidden"
-                id="pantry-upload"
-              />
-              <label
-                htmlFor="pantry-upload"
-                className="px-8 py-4 bg-primary text-white rounded-xl font-bold cursor-pointer hover:bg-orange-600 transition-all hover:scale-105 active:scale-95 shadow-lg shadow-primary/30"
-              >
-                Choose Photo
-              </label>
+          </div>
 
-              {errorMessage && (
-                <div className="mt-6 text-danger text-sm font-medium bg-danger/10 px-4 py-2 rounded-lg border border-danger/20">
-                  {errorMessage}
-                </div>
-              )}
-            </>
-          )}
         </div>
-      </div>
+      </main>
+
+      {/* Bottom Summary Strip */}
+      <footer className="max-w-6xl mx-auto w-full bg-white rounded-[24px] border border-border p-6 shadow-sm grid grid-cols-3 gap-4 text-center divide-x divide-[#F5F5F0]">
+        <div>
+          <div className="text-2xl font-extrabold text-textHeading">84%</div>
+          <div className="text-xs text-textMuted mt-0.5">Freshness Score</div>
+        </div>
+        <div>
+          <div className="text-2xl font-extrabold text-textHeading">4</div>
+          <div className="text-xs text-textMuted mt-0.5">Items Expiring Soon</div>
+        </div>
+        <div>
+          <div className="text-2xl font-extrabold text-textHeading">$12.50</div>
+          <div className="text-xs text-textMuted mt-0.5">Est. Waste Saved</div>
+        </div>
+      </footer>
     </div>
   );
+};
+
+// Helper function to resolve meal image
+const getMealImage = (name: string) => {
+  if (name.toLowerCase().includes("salad") || name.toLowerCase().includes("quinoa")) {
+    return "https://images.unsplash.com/photo-1505576399279-565b52d4ac71?w=600&auto=format&fit=crop&q=80";
+  }
+  if (name.toLowerCase().includes("smoothie") || name.toLowerCase().includes("shake")) {
+    return "https://images.unsplash.com/photo-1553530666-ba11a7da3888?w=600&auto=format&fit=crop&q=80";
+  }
+  return "https://images.unsplash.com/photo-1512058564366-18510be2db19?w=600&auto=format&fit=crop&q=80";
 };

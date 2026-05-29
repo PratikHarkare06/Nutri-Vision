@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { AppHeader } from "./components/AppHeader";
+import { Sidebar } from "./components/Sidebar";
 import { DashboardPage } from "./pages/DashboardPage";
 import { HistoryPage } from "./pages/HistoryPage";
 import { InsightsPage } from "./pages/InsightsPage";
@@ -8,6 +8,7 @@ import { ResultsPage } from "./pages/ResultsPage";
 import { DietPlanPage } from "./pages/DietPlanPage";
 import { PantryPage } from "./pages/PantryPage";
 import { WorkoutPage } from "./pages/WorkoutPage";
+import { PWAInstallBanner } from "./components/PWAInstallBanner";
 
 const getPathname = () => window.location.pathname || "/";
 
@@ -26,10 +27,10 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen bg-background text-textMain flex flex-col font-sans">
-      <AppHeader currentPath={pathname} onNavigate={navigate} />
-      
-      <main className="flex-1 flex flex-col">
+    <div className="min-h-screen bg-background flex flex-row font-sans relative">
+      <Sidebar currentPath={pathname} onNavigate={navigate} />
+
+      <main className="flex-1 min-h-screen overflow-y-auto">
         {pathname === "/results" ? (
           <ResultsPage onBack={() => navigate("/")} onNavigate={navigate} />
         ) : pathname === "/insights" ? (
@@ -45,9 +46,10 @@ function App() {
         ) : pathname === "/workouts" ? (
           <WorkoutPage />
         ) : (
-          <DashboardPage onUploadSuccess={() => navigate("/results")} />
+          <DashboardPage onUploadSuccess={() => navigate("/results")} onNavigate={navigate} />
         )}
       </main>
+      <PWAInstallBanner />
     </div>
   );
 }
