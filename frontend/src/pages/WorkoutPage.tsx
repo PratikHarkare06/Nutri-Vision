@@ -130,8 +130,28 @@ export const WorkoutPage = () => {
 
   if (loading) {
     return (
-      <div className="flex-1 flex justify-center items-center min-h-screen bg-background">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#7A9E7E]"></div>
+      <div className="flex-1 min-h-screen bg-background pb-24 px-8 pt-8 animate-pulse">
+        <header className="max-w-6xl mx-auto w-full flex justify-between items-center mb-8">
+          <div className="space-y-2">
+            <div className="h-8 w-48 bg-[#E2E4DC] rounded-xl" />
+            <div className="h-4 w-72 bg-[#E2E4DC]/60 rounded-lg" />
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 bg-white border border-border rounded-full" />
+            <div className="h-10 w-10 bg-white border border-border rounded-full" />
+            <div className="h-10 w-10 bg-[#E2E4DC] rounded-full" />
+          </div>
+        </header>
+        <main className="max-w-6xl mx-auto w-full grid grid-cols-1 lg:grid-cols-[1.3fr_1.0fr] gap-8">
+          <div className="space-y-6">
+            <div className="bg-white border border-border rounded-[24px] p-6 h-96" />
+            <div className="bg-white border border-border rounded-[24px] p-6 h-64" />
+          </div>
+          <div className="space-y-6">
+            <div className="bg-white border border-border rounded-[24px] p-6 h-72" />
+            <div className="bg-white border border-border rounded-[24px] p-6 h-60" />
+          </div>
+        </main>
       </div>
     );
   }

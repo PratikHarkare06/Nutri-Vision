@@ -61,8 +61,31 @@ export const DietPlanPage = () => {
 
   if (loading) {
     return (
-      <div className="flex-1 flex justify-center items-center h-full">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      <div className="flex-1 min-h-screen bg-background pb-24 px-8 pt-8 animate-pulse">
+        <header className="max-w-6xl mx-auto w-full flex justify-between items-center mb-8">
+          <div className="space-y-2">
+            <div className="h-8 w-48 bg-[#E2E4DC] rounded-xl" />
+            <div className="h-4 w-72 bg-[#E2E4DC]/60 rounded-lg" />
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-32 bg-[#E2E4DC] rounded-full" />
+            <div className="h-10 w-32 bg-[#E2E4DC] rounded-full" />
+          </div>
+        </header>
+        <main className="max-w-6xl mx-auto w-full grid grid-cols-1 lg:grid-cols-[1.1fr_1.4fr] gap-8">
+          <div className="space-y-4">
+            <div className="h-6 w-24 bg-[#E2E4DC] rounded-lg mb-2" />
+            {[1, 2, 3, 4, 5].map((i) => (
+              <div key={i} className="h-20 bg-white border border-border rounded-3xl" />
+            ))}
+          </div>
+          <div className="space-y-4">
+            <div className="h-6 w-32 bg-[#E2E4DC] rounded-lg mb-2" />
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="h-28 bg-white border border-border rounded-[24px]" />
+            ))}
+          </div>
+        </main>
       </div>
     );
   }

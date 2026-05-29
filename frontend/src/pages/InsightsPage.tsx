@@ -65,6 +65,21 @@ const macroSplitData = [
   { name: "Fats", value: 25, color: "#D4A847" },
 ];
 
+const InsightsCalorieTooltip = ({ active, payload }: any) => {
+  if (active && payload && payload.length) {
+    return (
+      <div className="bg-white border border-border rounded-xl p-3 shadow-md">
+        <p className="text-[10px] text-textMuted font-bold uppercase tracking-wider">Calories</p>
+        <p className="text-sm font-extrabold text-textHeading mt-0.5">Actual: {payload[0].value} kcal</p>
+        {payload[1] && (
+          <p className="text-xs font-semibold text-textMuted mt-0.5">Goal: {payload[1].value} kcal</p>
+        )}
+      </div>
+    );
+  }
+  return null;
+};
+
 export const InsightsPage = ({ onNavigate }: InsightsPageProps) => {
   const [historyItems, setHistoryItems] = useState<UploadAnalysis[]>([]);
   const [timeframe, setTimeframe] = useState<"7D" | "30D" | "90D">("7D");
@@ -222,8 +237,9 @@ export const InsightsPage = ({ onNavigate }: InsightsPageProps) => {
                     </linearGradient>
                   </defs>
                   <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fill: "#888888", fontSize: 11 }} />
-                  <Tooltip contentStyle={{ backgroundColor: '#FFFFFF', borderColor: '#E2E4DC', borderRadius: '10px' }} />
-                  <Area type="monotone" dataKey="actual" stroke="#9DB89F" strokeWidth={2.5} fill="url(#insightsCalorieFill)" />
+                  <Tooltip content={<InsightsCalorieTooltip />} />
+                  <Area type="monotone" dataKey="actual" stroke="#9DB89F" strokeWidth={2.5} fill="url(#insightsCalorieFill)" dot={{ fill: "#9DB89F", r: 4, strokeWidth: 0 }} />
+                  <Area type="monotone" dataKey="goal" stroke="#C8CBBC" strokeWidth={1.5} fill="none" strokeDasharray="4 4" dot={false} />
                 </AreaChart>
               </ResponsiveContainer>
             </div>
