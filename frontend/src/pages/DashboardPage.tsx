@@ -350,7 +350,10 @@ export const DashboardPage = ({ onUploadSuccess, onNavigate }: DashboardPageProp
           </section>
 
           {/* Evening Yoga Card */}
-          <section className="bg-[#EBF2EB] border border-[#D4E6D5] rounded-2xl p-4 flex items-center justify-between cursor-pointer card-hover animate-slide-up">
+          <section 
+            onClick={() => onNavigate?.("/workouts")}
+            className="bg-[#EBF2EB] border border-[#D4E6D5] rounded-2xl p-4 flex items-center justify-between cursor-pointer card-hover animate-slide-up"
+          >
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-[#2C3E2B] shadow-sm">
                 {/* Dumbbell Icon */}
