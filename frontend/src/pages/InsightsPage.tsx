@@ -141,7 +141,10 @@ export const InsightsPage = ({ onNavigate }: InsightsPageProps) => {
             </div>
 
             {/* Profile AR badge */}
-            <div className="flex items-center justify-center w-10 h-10 rounded-full bg-[#EBF2EB] border border-[#D4E6D5] text-[#2C3E2B] font-bold text-sm shadow-sm">
+            <div 
+              onClick={() => onNavigate("/profile")}
+              className="flex items-center justify-center w-10 h-10 rounded-full bg-[#EBF2EB] border border-[#D4E6D5] text-[#2C3E2B] font-bold text-sm shadow-sm cursor-pointer hover:bg-[#D4E6D5] transition-colors"
+            >
               AR
             </div>
           </div>

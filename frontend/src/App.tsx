@@ -44,7 +44,7 @@ function App() {
         ) : pathname === "/pantry" ? (
           <PantryPage />
         ) : pathname === "/workouts" ? (
-          <WorkoutPage />
+          <WorkoutPage onNavigate={navigate} />
         ) : (
           <DashboardPage onUploadSuccess={() => navigate("/results")} onNavigate={navigate} />
         )}

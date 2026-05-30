@@ -43,6 +43,7 @@ export const DashboardPage = ({ onUploadSuccess, onNavigate }: DashboardPageProp
 
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [hydrationML, setHydrationML] = useState(1800); // 1.8L
+  const [showNotifications, setShowNotifications] = useState(false);
 
   useEffect(() => {
     return () => {
@@ -74,19 +75,66 @@ export const DashboardPage = ({ onUploadSuccess, onNavigate }: DashboardPageProp
           <h1 className="text-3xl font-bold text-textHeading tracking-tight">Welcome back, Alex</h1>
           <p className="text-textMuted text-sm mt-1">You've reached 85% of your protein goal today.</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 relative">
           {/* Header Action Buttons */}
-          <button className="w-10 h-10 rounded-full bg-white flex items-center justify-center border border-border hover:bg-surfaceAlt text-textHeading transition-colors shadow-sm">
+          <button 
+            onClick={() => onNavigate?.("/history")}
+            className="w-10 h-10 rounded-full bg-white flex items-center justify-center border border-border hover:bg-surfaceAlt text-textHeading transition-colors shadow-sm"
+          >
             <SearchIcon className="w-4 h-4" />
           </button>
-          <button className="w-10 h-10 rounded-full bg-white flex items-center justify-center border border-border hover:bg-surfaceAlt text-textHeading transition-colors shadow-sm relative">
+          <button 
+            onClick={() => setShowNotifications(!showNotifications)}
+            className="w-10 h-10 rounded-full bg-white flex items-center justify-center border border-border hover:bg-surfaceAlt text-textHeading transition-colors shadow-sm relative"
+          >
             <svg viewBox="0 0 24 24" fill="none" className="w-4 h-4" stroke="currentColor" strokeWidth={2}>
               <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0" />
             </svg>
           </button>
-          <div className="flex items-center justify-center w-10 h-10 rounded-full bg-[#EBF2EB] border border-[#D4E6D5] text-[#2C3E2B] font-bold text-sm shadow-sm cursor-pointer hover:bg-[#D4E6D5] transition-colors">
+          <div 
+            onClick={() => onNavigate?.("/profile")}
+            className="flex items-center justify-center w-10 h-10 rounded-full bg-[#EBF2EB] border border-[#D4E6D5] text-[#2C3E2B] font-bold text-sm shadow-sm cursor-pointer hover:bg-[#D4E6D5] transition-colors"
+          >
             AR
           </div>
+
+          {/* Notifications Dropdown */}
+          {showNotifications && (
+            <div className="absolute right-0 top-12 w-80 bg-white/95 backdrop-blur-md border border-border rounded-2xl shadow-xl p-4 z-50 animate-slide-up">
+              <div className="flex justify-between items-center mb-3">
+                <h4 className="font-bold text-textHeading text-xs">Notifications</h4>
+                <button 
+                  onClick={() => setShowNotifications(false)}
+                  className="text-[10px] text-textMuted hover:text-textHeading font-semibold"
+                >
+                  Close
+                </button>
+              </div>
+              <div className="space-y-3">
+                <div className="p-2.5 rounded-xl bg-[#EBF2EB] border border-[#D4E6D5] flex gap-2 items-start">
+                  <span className="text-sm">⭐</span>
+                  <div>
+                    <h5 className="font-bold text-[#2C3E2B] text-[10px]">7 Day Streak!</h5>
+                    <p className="text-[9px] text-[#2C3E2B]/85 mt-0.5">Alex, you have maintained a 7-day food logging consistency.</p>
+                  </div>
+                </div>
+                <div className="p-2.5 rounded-xl bg-[#FEF0EB] border border-[#FEE2D5] flex gap-2 items-start">
+                  <span className="text-sm">💧</span>
+                  <div>
+                    <h5 className="font-bold text-[#E8815A] text-[10px]">Hydration Target</h5>
+                    <p className="text-[9px] text-[#E8815A]/85 mt-0.5">Don't forget to log 500ml water after your lunch.</p>
+                  </div>
+                </div>
+                <div className="p-2.5 rounded-xl bg-[#EBF2F8] border border-border flex gap-2 items-start">
+                  <span className="text-sm">🏋️‍♂️</span>
+                  <div>
+                    <h5 className="font-bold text-textHeading text-[10px]">Workout Logged</h5>
+                    <p className="text-[9px] text-textMuted mt-0.5">3 workout sessions synchronized from Apple Health.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </header>
 
