@@ -217,12 +217,29 @@ const addProgressLog = async (req, res, next) => {
 const generateGroceryListHandler = async (req, res, next) => {
   try {
     const profile = await UserProfile.findOne(profileFilter).lean();
-    if (!profile || !profile.diet_plan) {
-      return next(createAppError(400, "NO_DIET_PLAN", "Please generate a Diet Plan first."));
-    }
+    
+    // If no custom diet plan exists, fall back to the default diet plan structure to generate the grocery list
+    const dietPlanToUse = (profile && profile.diet_plan && profile.diet_plan.length > 0)
+      ? profile.diet_plan
+      : [
+          {
+            day: "Monday",
+            meals: [
+              { type: "Breakfast", name: "Oatmeal with berries", description: "Steel cut oats with fruit", calories: 400, protein: 15, carbs: 65, fat: 8 }
+            ]
+          },
+          {
+            day: "Tuesday",
+            meals: [
+              { type: "Breakfast", name: "Avocado Toast with Poached Egg", description: "Whole grain sourdough, smashed avocado, and two organic eggs.", calories: 420, protein: 18, carbs: 32, fat: 12 },
+              { type: "Lunch", name: "Mediterranean Quinoa Bowl", description: "Fresh cucumbers, feta cheese, chickpeas, and lemon-herb dressing.", calories: 580, protein: 14, carbs: 45, fat: 16 },
+              { type: "Dinner", name: "Grilled Salmon & Asparagus", description: "Wild-caught salmon with roasted garlic asparagus and brown rice.", calories: 650, protein: 38, carbs: 20, fat: 22 }
+            ]
+          }
+        ];
 
     const { generateGroceryList } = require("../services/geminiAnalysisService");
-    const groceryList = await generateGroceryList(profile.diet_plan);
+    const groceryList = await generateGroceryList(dietPlanToUse);
 
     res.status(200).json({ success: true, data: groceryList });
   } catch (error) {

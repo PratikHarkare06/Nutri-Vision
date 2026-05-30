@@ -209,6 +209,22 @@ export const DietPlanPage = () => {
         </div>
       </header>
 
+      {/* Error Alert Banner */}
+      {error && (
+        <div className="max-w-6xl mx-auto w-full mb-6 p-4 rounded-2xl bg-danger/10 border border-danger/25 text-danger text-xs font-semibold flex items-center justify-between animate-fade-in shadow-sm">
+          <div className="flex items-center gap-2">
+            <span>⚠️</span>
+            <span>{error}</span>
+          </div>
+          <button 
+            onClick={() => setError(null)} 
+            className="text-danger hover:text-rose-900 font-bold ml-2 text-sm shrink-0 transition-colors"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       {/* Main Grid Content */}
       <main className="max-w-6xl mx-auto w-full grid grid-cols-1 lg:grid-cols-[1.1fr_1.4fr] gap-8">
         
