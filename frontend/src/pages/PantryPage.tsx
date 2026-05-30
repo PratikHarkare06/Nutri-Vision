@@ -135,7 +135,11 @@ export const PantryPage = () => {
             })) : mockPantryItems).map((item) => (
               <div 
                 key={item.name} 
-                className="bg-white border border-border rounded-2xl p-4 flex justify-between items-center shadow-sm hover:shadow-md transition-shadow"
+                className={`bg-white border rounded-2xl p-4 flex justify-between items-center transition-all duration-300
+                  ${item.tag === "Low" 
+                    ? "border-[#E8815A]/30 hover:border-[#E8815A]/60 shadow-[0_2px_12px_-3px_rgba(232,129,90,0.08)] hover:shadow-[0_4px_16px_-2px_rgba(232,129,90,0.15)]" 
+                    : "border-[#7A9E7E]/30 hover:border-[#7A9E7E]/60 shadow-[0_2px_12px_-3px_rgba(122,158,126,0.08)] hover:shadow-[0_4px_16px_-2px_rgba(122,158,126,0.15)]"
+                  }`}
               >
                 <div className="flex gap-3 items-center">
                   <div className="w-10 h-10 rounded-xl bg-[#F5F6F1] border border-border flex items-center justify-center text-lg select-none">
@@ -146,7 +150,12 @@ export const PantryPage = () => {
                     <p className="text-xs text-textMuted mt-0.5">{item.details}</p>
                   </div>
                 </div>
-                <span className="px-2.5 py-0.5 rounded-full bg-[#F5F5F0] border border-border text-[10px] font-bold text-textMuted uppercase">
+                <span className={`px-2.5 py-0.5 rounded-full border text-[10px] font-bold uppercase transition-colors
+                  ${item.tag === "Low"
+                    ? "bg-[#FEF0EB] text-[#E8815A] border-[#FEF0EB]"
+                    : "bg-[#EBF2EB] text-[#7A9E7E] border-[#EBF2EB]"
+                  }`}
+                >
                   {item.tag}
                 </span>
               </div>
