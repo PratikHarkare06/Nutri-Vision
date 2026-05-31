@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { getUploadErrorMessage, uploadImageRequest, scanBarcodeRequest, uploadPantryImageRequest } from "../services/uploadApi";
+import { getUploadErrorMessage, uploadImageRequest, scanBarcodeRequest, uploadPantryImageRequest, uploadVoiceLogRequest } from "../services/uploadApi";
 import type { UploadAnalysis, PantryAnalysis } from "../types";
 
 type UploadState = {
@@ -20,6 +20,7 @@ type UploadState = {
   uploadPantryImage: (file: File | null) => Promise<boolean>;
   addIngredientsToPantry: (ingredients: string[]) => void;
   deductIngredientsFromPantry: (ingredients: string[]) => void;
+  uploadVoiceLog: (transcript: string) => Promise<boolean>;
 };
 
 const allowedTypes = ["image/jpeg", "image/jpg", "image/png"];
@@ -237,5 +238,35 @@ export const useUploadStore = create<UploadState>((set, get) => ({
         recipes: currentAnalysis ? currentAnalysis.recipes : []
       }
     });
+  },
+  uploadVoiceLog: async (transcript) => {
+    if (!transcript.trim()) {
+      set({ errorMessage: "Voice log transcript cannot be empty." });
+      return false;
+    }
+
+    set({
+      errorMessage: "",
+      progressMessage: "Analyzing voice log nutrition details...",
+      isUploading: true,
+    });
+
+    try {
+      const response = await uploadVoiceLogRequest(transcript.trim());
+      set({
+        analysis: response.data,
+        errorMessage: "",
+        progressMessage: "",
+        isUploading: false,
+      });
+      return true;
+    } catch (error) {
+      set({
+        errorMessage: getUploadErrorMessage(error),
+        progressMessage: "",
+        isUploading: false,
+      });
+      return false;
+    }
   },
 }));

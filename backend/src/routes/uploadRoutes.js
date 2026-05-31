@@ -3,6 +3,7 @@ const { getHistory } = require("../controllers/historyController");
 const { getProfile, saveProfile } = require("../controllers/profileController");
 const { uploadImage: uploadImageMiddleware } = require("../config/multer");
 const { uploadImage, correctIngredient, scanBarcode, analyzePantryImage } = require("../controllers/uploadController");
+const { parseVoiceLog } = require("../controllers/voiceLogController");
 
 const { addClient } = require("../utils/progressTracker");
 
@@ -25,6 +26,7 @@ router.get("/upload/progress/:id", (req, res) => {
 router.post("/upload/correct", correctIngredient);
 router.post("/upload/barcode", scanBarcode);
 router.post("/upload/pantry", uploadImageMiddleware, analyzePantryImage);
+router.post("/upload/voice-log", parseVoiceLog);
 router.post("/upload", uploadImageMiddleware, uploadImage);
 
 module.exports = router;

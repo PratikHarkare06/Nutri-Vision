@@ -311,9 +311,80 @@ Do not return any markdown formatting or any other text outside the JSON.`;
       config: { responseMimeType: "application/json" },
     });
     return JSON.parse(response.text);
-  } catch (error) {
     console.error("Gemini Zero Waste Recipe Error:", error);
     throw new Error("Failed to generate zero waste recipe.");
+  }
+};
+
+const parseVoiceMealWithGemini = async (transcript, profile) => {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) throw new Error("GEMINI_API_KEY is not configured.");
+
+  const ai = new GoogleGenAI({ apiKey });
+
+  const restrictions = profile?.dietary_restrictions?.length ? profile.dietary_restrictions.join(", ") : "None";
+  const allergies = profile?.food_allergies?.length ? profile.food_allergies.join(", ") : "None";
+  const dietMode = profile?.diet_mode || "Balanced";
+
+  const prompt = `You are a professional nutritionist and calorie estimation assistant.
+The user logged their meal by voice: "${transcript}"
+
+Your task is to analyze this transcript, extract the foods/ingredients, estimate quantities, and calculate macros.
+Assume the meal contains healthy, realistic proportions. Output estimated portion weights in grams.
+
+The user's profile:
+- Diet Mode: ${dietMode}
+- Dietary Restrictions: ${restrictions}
+- Allergies: ${allergies}
+
+All food recommendations MUST respect these profile conditions.
+Return ONLY a valid JSON object matching this exact schema:
+{
+  "mealType": "Lunch",
+  "mealCategory": "Custom",
+  "weight": 350,
+  "volume": 0,
+  "volumeSource": "voice",
+  "imageUrl": "https://images.unsplash.com/photo-1498837167922-ddd27525d352?w=600&auto=format&fit=crop&q=80",
+  "foods": [
+    { "name": "Scrambled Eggs", "confidence": 0.98 }
+  ],
+  "macros": {
+    "calories": 420,
+    "protein": 24,
+    "carbs": 12,
+    "fat": 18,
+    "fiber": 2
+  },
+  "ingredients_macros": {
+    "scrambled eggs": {
+      "calories": 140,
+      "protein": 12,
+      "carbs": 2,
+      "fat": 10,
+      "fiber": 0,
+      "portionWeight": 100,
+      "portionCalories": 140,
+      "portionProtein": 12,
+      "portionCarbs": 2,
+      "portionFat": 10,
+      "portionFiber": 0
+    }
+  }
+}
+Note: the keys inside the "ingredients_macros" object MUST be the exact lowercase names of the items mapped in "foods".
+Do not return any markdown formatting outside of the JSON.`;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: [prompt],
+      config: { responseMimeType: "application/json" },
+    });
+    return JSON.parse(response.text);
+  } catch (error) {
+    console.error("Gemini Voice Meal Parsing Error:", error);
+    throw new Error("Failed to parse voice log with Gemini.");
   }
 };
 
@@ -323,5 +394,6 @@ module.exports = {
   generatePersonalizedDietPlan, 
   analyzePantryWithGemini, 
   generateGroceryList,
-  generateZeroWasteRecipeWithGemini
+  generateZeroWasteRecipeWithGemini,
+  parseVoiceMealWithGemini
 };

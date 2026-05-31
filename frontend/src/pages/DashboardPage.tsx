@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { UploadCard } from "../components/UploadCard";
 import { useUploadStore } from "../store/uploadStore";
 import { Area, AreaChart, ResponsiveContainer, XAxis, Tooltip } from "recharts";
@@ -40,21 +40,131 @@ export const DashboardPage = ({ onUploadSuccess, onNavigate }: DashboardPageProp
   const isUploading = useUploadStore((state) => state.isUploading);
   const setDragActive = useUploadStore((state) => state.setDragActive);
   const uploadImage = useUploadStore((state) => state.uploadImage);
+  const uploadVoiceLog = useUploadStore((state) => state.uploadVoiceLog);
+  const progressMessage = useUploadStore((state) => state.progressMessage);
 
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [hydrationML, setHydrationML] = useState(1800); // 1.8L
   const [showNotifications, setShowNotifications] = useState(false);
 
+  // Voice Logging States
+  const [loggingMode, setLoggingMode] = useState<"image" | "voice">("image");
+  const [voiceTranscript, setVoiceTranscript] = useState("");
+  const [isRecording, setIsRecording] = useState(false);
+  const [speechError, setSpeechError] = useState("");
+
+  const recognitionRef = useRef<any>(null);
+
   useEffect(() => {
     return () => {
       cancelUpload();
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+      }
     };
   }, [cancelUpload]);
+
+  const startRecording = () => {
+    clearError();
+    setSpeechError("");
+    
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      setSpeechError("Speech recognition is not supported in this browser. Please use Chrome or Safari, or type your meal description manually.");
+      return;
+    }
+
+    try {
+      const rec = new SpeechRecognition();
+      rec.continuous = true;
+      rec.interimResults = true;
+      rec.lang = "en-US";
+
+      rec.onstart = () => {
+        setIsRecording(true);
+      };
+
+      rec.onresult = (event: any) => {
+        const currentTranscript = Array.from(event.results)
+          .map((result: any) => result[0].transcript)
+          .join(" ");
+        setVoiceTranscript(currentTranscript);
+      };
+
+      rec.onerror = (event: any) => {
+        console.error("Speech recognition error", event.error);
+        if (event.error === "not-allowed") {
+          setSpeechError("Microphone permission denied. Please allow microphone access or type your meal manually.");
+        } else {
+          setSpeechError(`Error during speech recognition: ${event.error}. Please type your meal manually.`);
+        }
+        setIsRecording(false);
+        if (recognitionRef.current) {
+          recognitionRef.current.stop();
+        }
+      };
+
+      rec.onend = () => {
+        setIsRecording(false);
+      };
+
+      recognitionRef.current = rec;
+      rec.start();
+    } catch (err: any) {
+      console.error(err);
+      setSpeechError("Could not start speech recognition. Please type your meal manually.");
+      setIsRecording(false);
+    }
+  };
+
+  const stopRecording = () => {
+    if (recognitionRef.current) {
+      recognitionRef.current.stop();
+    }
+    setIsRecording(false);
+  };
+
+  const toggleRecording = () => {
+    if (isRecording) {
+      stopRecording();
+    } else {
+      startRecording();
+    }
+  };
+
+  const handleOpenModal = () => {
+    clearError();
+    setLoggingMode("image");
+    setVoiceTranscript("");
+    setSpeechError("");
+    setIsUploadModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    clearError();
+    cancelUpload();
+    if (recognitionRef.current) {
+      recognitionRef.current.stop();
+    }
+    setIsRecording(false);
+    setIsUploadModalOpen(false);
+  };
 
   // Handle successful scan
   const handleFileSelected = async (file: File | null) => {
     clearError();
     const success = await uploadImage(file, "auto");
+    if (success) {
+      setIsUploadModalOpen(false);
+      onUploadSuccess();
+    }
+  };
+
+  // Handle voice upload
+  const handleVoiceSubmit = async () => {
+    if (!voiceTranscript.trim()) return;
+    clearError();
+    const success = await uploadVoiceLog(voiceTranscript);
     if (success) {
       setIsUploadModalOpen(false);
       onUploadSuccess();
@@ -153,7 +263,7 @@ export const DashboardPage = ({ onUploadSuccess, onNavigate }: DashboardPageProp
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-xl font-bold text-textHeading">Today's Meals</h2>
               <button 
-                onClick={() => setIsUploadModalOpen(true)}
+                onClick={handleOpenModal}
                 className="flex items-center gap-1.5 px-4 py-2 bg-[#9DB89F] hover:bg-[#7A9E7E] text-white rounded-xl text-xs font-bold transition-all shadow-sm"
               >
                 <span className="text-sm font-semibold">+</span> Log Meal
@@ -461,7 +571,7 @@ export const DashboardPage = ({ onUploadSuccess, onNavigate }: DashboardPageProp
 
       {/* Floating Action Button (FAB) for Scan Meal */}
       <button 
-        onClick={() => setIsUploadModalOpen(true)}
+        onClick={handleOpenModal}
         className="fixed bottom-8 right-8 flex items-center gap-2 px-6 py-3.5 bg-[#9DB89F] hover:bg-[#7A9E7E] text-white rounded-full font-bold shadow-lg shadow-[#9DB89F]/30 hover:scale-105 active:scale-95 transition-all z-20"
       >
         <CameraIcon className="w-5 h-5" />
@@ -471,33 +581,172 @@ export const DashboardPage = ({ onUploadSuccess, onNavigate }: DashboardPageProp
       {/* Overlay Upload Modal */}
       {isUploadModalOpen && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <style>{`
+            @keyframes soundWave {
+              0%, 100% { height: 8px; }
+              50% { height: 28px; }
+            }
+            .sound-bar {
+              animation: soundWave 1.2s ease-in-out infinite;
+            }
+          `}</style>
           <div className="bg-white rounded-[32px] w-full max-w-2xl border border-border shadow-2xl relative p-8">
             <button 
-              onClick={() => {
-                clearError();
-                cancelUpload();
-                setIsUploadModalOpen(false);
-              }}
+              onClick={handleCloseModal}
               className="absolute top-6 right-6 text-textMuted hover:text-textHeading transition-colors"
             >
               <CloseIcon className="w-6 h-6" />
             </button>
-            <div className="mb-4">
-              <h2 className="text-2xl font-bold text-textHeading tracking-tight">Scan Food Meal</h2>
-              <p className="text-textMuted text-xs mt-1">Upload an image of your meal for AI-powered nutritional breakdown</p>
+            <div className="mb-4 text-center">
+              <h2 className="text-2xl font-bold text-textHeading tracking-tight">Log Your Meal</h2>
+              <p className="text-textMuted text-xs mt-1">Get an AI-powered nutritional breakdown using images or voice logs</p>
+            </div>
+
+            {/* Tab switch pills */}
+            <div className="flex gap-2 p-1 bg-[#F5F5F0] rounded-full border border-border w-fit mx-auto mb-6">
+              <button
+                type="button"
+                onClick={() => {
+                  clearError();
+                  setSpeechError("");
+                  setLoggingMode("image");
+                }}
+                className={`px-5 py-2 rounded-full font-bold text-xs flex items-center gap-1.5 transition-all ${
+                  loggingMode === "image"
+                    ? "bg-[#9DB89F] text-white shadow-sm"
+                    : "text-textMuted hover:text-textHeading"
+                }`}
+              >
+                <CameraIcon className="w-3.5 h-3.5" />
+                Image Scan
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  clearError();
+                  setSpeechError("");
+                  setLoggingMode("voice");
+                }}
+                className={`px-5 py-2 rounded-full font-bold text-xs flex items-center gap-1.5 transition-all ${
+                  loggingMode === "voice"
+                    ? "bg-[#9DB89F] text-white shadow-sm"
+                    : "text-textMuted hover:text-textHeading"
+                }`}
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} className="w-3.5 h-3.5">
+                  <path d="M12 1v11m0 0a3 3 0 003-3V4a3 3 0 00-6 0v5a3 3 0 003 3zm0 0v4m-5-4a7 7 0 0010 0" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+                Voice Log
+              </button>
             </div>
             
-            <div className="mt-6">
-              <UploadCard
-                dragActive={dragActive}
-                errorMessage={errorMessage}
-                isUploading={isUploading}
-                onDragChange={(active) => {
-                  clearError();
-                  setDragActive(active);
-                }}
-                onFileSelected={handleFileSelected}
-              />
+            <div className="mt-4">
+              {loggingMode === "image" ? (
+                <UploadCard
+                  dragActive={dragActive}
+                  errorMessage={errorMessage}
+                  isUploading={isUploading}
+                  onDragChange={(active) => {
+                    clearError();
+                    setDragActive(active);
+                  }}
+                  onFileSelected={handleFileSelected}
+                />
+              ) : (
+                <div className="w-full flex flex-col items-center">
+                  {/* Waveform Visualizer */}
+                  <div className="flex justify-center items-end gap-1 h-8 mb-4">
+                    {isRecording ? (
+                      <>
+                        <div className="w-1 bg-[#7A9E7E] rounded-full sound-bar" style={{ animationDelay: '0.1s' }} />
+                        <div className="w-1 bg-[#7A9E7E] rounded-full sound-bar" style={{ animationDelay: '0.3s' }} />
+                        <div className="w-1 bg-[#7A9E7E] rounded-full sound-bar" style={{ animationDelay: '0.5s' }} />
+                        <div className="w-1 bg-[#7A9E7E] rounded-full sound-bar" style={{ animationDelay: '0.2s' }} />
+                        <div className="w-1 bg-[#7A9E7E] rounded-full sound-bar" style={{ animationDelay: '0.4s' }} />
+                      </>
+                    ) : (
+                      <>
+                        <div className="w-1 bg-border rounded-full h-2" />
+                        <div className="w-1 bg-border rounded-full h-2" />
+                        <div className="w-1 bg-border rounded-full h-2" />
+                        <div className="w-1 bg-border rounded-full h-2" />
+                        <div className="w-1 bg-border rounded-full h-2" />
+                      </>
+                    )}
+                  </div>
+
+                  {/* Pulsing Mic Button */}
+                  <div className="relative flex items-center justify-center mb-4">
+                    {isRecording && (
+                      <>
+                        <span className="absolute inline-flex h-20 w-20 rounded-full bg-rose/30 animate-ping"></span>
+                        <span className="absolute inline-flex h-16 w-16 rounded-full bg-rose/40 animate-pulse"></span>
+                      </>
+                    )}
+                    <button
+                      type="button"
+                      onClick={toggleRecording}
+                      className={`relative z-10 w-16 h-16 rounded-full flex items-center justify-center shadow-lg hover:scale-105 active:scale-95 transition-all duration-300 ${
+                        isRecording 
+                          ? "bg-rose text-white hover:bg-rose/90 shadow-rose/20" 
+                          : "bg-[#F5F6F1] border border-border text-[#7A9E7E] hover:border-[#7A9E7E]"
+                      }`}
+                    >
+                      {isRecording ? (
+                        <svg viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6">
+                          <rect x="6" y="6" width="12" height="12" rx="2" />
+                        </svg>
+                      ) : (
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} className="w-6 h-6">
+                          <path d="M12 1v11m0 0a3 3 0 003-3V4a3 3 0 00-6 0v5a3 3 0 003 3zm0 0v4m-5-4a7 7 0 0010 0" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      )}
+                    </button>
+                  </div>
+
+                  <p className="text-xs font-bold text-textMuted uppercase tracking-wider mb-6">
+                    {isRecording ? "Listening... speak clearly" : "Tap microphone to record meal description"}
+                  </p>
+
+                  {/* Textarea Fallback / Transcript display */}
+                  <div className="w-full text-left mb-6">
+                    <label className="block text-xs font-bold text-textMuted uppercase tracking-wider mb-2">
+                      Meal Transcript
+                    </label>
+                    <textarea
+                      value={voiceTranscript}
+                      onChange={(e) => setVoiceTranscript(e.target.value)}
+                      placeholder="e.g. 'I had two scrambled eggs with spinach and a cup of coffee with a splash of milk...'"
+                      disabled={isUploading}
+                      className="w-full min-h-[120px] p-4 bg-[#F9FAF8] border border-border focus:border-[#7A9E7E] focus:ring-1 focus:ring-[#7A9E7E] rounded-2xl text-textHeading text-sm outline-none resize-none font-medium transition-all shadow-sm"
+                    />
+                  </div>
+
+                  {/* Errors */}
+                  {(speechError || errorMessage) && (
+                    <div className="w-full mb-6 rounded-xl border border-danger/30 bg-danger/10 p-3.5 text-xs font-medium text-danger text-center animate-fade-in">
+                      {speechError || errorMessage}
+                    </div>
+                  )}
+
+                  {/* Submit Button */}
+                  <button
+                    type="button"
+                    onClick={handleVoiceSubmit}
+                    disabled={isUploading || isRecording || !voiceTranscript.trim()}
+                    className="w-full max-w-sm px-6 py-3.5 rounded-xl bg-[#9DB89F] hover:bg-[#7A9E7E] text-white text-sm font-bold transition-colors disabled:opacity-50 flex items-center justify-center gap-2 shadow-sm mb-2"
+                  >
+                    {isUploading ? (
+                      <SpinnerIcon className="h-5 w-5 animate-spin text-white" />
+                    ) : (
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} className="w-4 h-4 text-white">
+                        <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    )}
+                    {isUploading ? progressMessage || "Analyzing..." : "Submit Voice Log"}
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>

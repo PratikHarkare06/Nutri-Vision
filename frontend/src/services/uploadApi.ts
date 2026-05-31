@@ -75,6 +75,11 @@ export const generateZeroWasteRecipeRequest = async (ingredients: string[]) => {
   return response.data;
 };
 
+export const uploadVoiceLogRequest = async (transcript: string) => {
+  const response = await api.post<UploadSuccessResponse>("/upload/voice-log", { transcript });
+  return response.data;
+};
+
 export const getUploadErrorMessage = (error: unknown): string => {
   const axiosError = error as AxiosError<ApiErrorResponse>;
 
