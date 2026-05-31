@@ -1,7 +1,8 @@
 import { useRef, useState } from "react";
-import { SparklesIcon, CameraIcon } from "../components/icons";
+import { SparklesIcon, CameraIcon, CloseIcon } from "../components/icons";
 import { useUploadStore } from "../store/uploadStore";
-import { generateZeroWasteRecipeRequest } from "../services/uploadApi";
+import { generateZeroWasteRecipeRequest, scanBarcodeRequest } from "../services/uploadApi";
+import { BarcodeScanner } from "../components/BarcodeScanner";
 
 // Mock data to match mockup screenshot
 const mockPantryItems = [
@@ -81,6 +82,12 @@ export const PantryPage = () => {
   const [activeRecipe, setActiveRecipe] = useState<any | null>(null);
   const [isGeneratingZeroWaste, setIsGeneratingZeroWaste] = useState(false);
 
+  // Add modal states
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [addMode, setAddMode] = useState<"image" | "barcode">("image");
+  const [isScanningBarcode, setIsScanningBarcode] = useState(false);
+  const [barcodeError, setBarcodeError] = useState("");
+
   const {
     pantryAnalysis,
     isUploading,
@@ -88,11 +95,35 @@ export const PantryPage = () => {
     progressMessage,
     uploadPantryImage,
     setPantryAnalysis,
-    deductIngredientsFromPantry
+    deductIngredientsFromPantry,
+    addIngredientsToPantry,
+    clearError
   } = useUploadStore();
+
+  const handleBarcodeDetected = async (barcode: string) => {
+    setBarcodeError("");
+    setIsScanningBarcode(true);
+    try {
+      const result = await scanBarcodeRequest(barcode);
+      if (result && result.success && result.data && result.data.foods.length > 0) {
+        const foodName = result.data.foods[0].name;
+        addIngredientsToPantry([foodName]);
+        alert(`Successfully added ${foodName} to your pantry!`);
+        setIsAddModalOpen(false);
+      } else {
+        setBarcodeError("Product not found. Please try another barcode or add it manually.");
+      }
+    } catch (err: any) {
+      console.error("Barcode lookup failed:", err);
+      setBarcodeError(err.response?.data?.error?.message || "Failed to find barcode. Please check your network and try again.");
+    } finally {
+      setIsScanningBarcode(false);
+    }
+  };
 
   const handleFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
+      setIsAddModalOpen(false);
       await uploadPantryImage(e.target.files[0]);
     }
   };
@@ -170,7 +201,7 @@ export const PantryPage = () => {
         </div>
         <div className="flex items-center gap-3">
           <button
-            onClick={triggerUpload}
+            onClick={() => setIsAddModalOpen(true)}
             disabled={isUploading}
             className="flex items-center gap-1.5 px-5 py-2.5 bg-[#9DB89F] hover:bg-[#7A9E7E] text-white rounded-full text-xs font-bold transition-all shadow-sm"
           >
@@ -508,6 +539,109 @@ export const PantryPage = () => {
                   {activeRecipe.isAiGenerated ? "Cook & Deduct Stock" : "Start Cooking"}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Ingredient Overlay Modal */}
+      {isAddModalOpen && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-[32px] w-full max-w-2xl border border-border shadow-2xl relative p-8">
+            <button 
+              onClick={() => {
+                clearError();
+                setBarcodeError("");
+                setIsAddModalOpen(false);
+              }}
+              className="absolute top-6 right-6 text-textMuted hover:text-textHeading transition-colors"
+            >
+              <CloseIcon className="w-6 h-6" />
+            </button>
+            <div className="mb-4 text-center">
+              <h2 className="text-2xl font-bold text-textHeading tracking-tight">Add Ingredients</h2>
+              <p className="text-textMuted text-xs mt-1">Upload a photo of your pantry/fridge, or scan a barcode to add items</p>
+            </div>
+
+            {/* Tab switch pills */}
+            <div className="flex gap-2 p-1 bg-[#F5F5F0] rounded-full border border-border w-fit mx-auto mb-6">
+              <button
+                type="button"
+                onClick={() => {
+                  clearError();
+                  setBarcodeError("");
+                  setAddMode("image");
+                }}
+                className={`px-5 py-2 rounded-full font-bold text-xs flex items-center gap-1.5 transition-all ${
+                  addMode === "image"
+                    ? "bg-[#9DB89F] text-white shadow-sm"
+                    : "text-textMuted hover:text-textHeading"
+                }`}
+              >
+                <CameraIcon className="w-3.5 h-3.5" />
+                Image Upload
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  clearError();
+                  setBarcodeError("");
+                  setAddMode("barcode");
+                }}
+                className={`px-5 py-2 rounded-full font-bold text-xs flex items-center gap-1.5 transition-all ${
+                  addMode === "barcode"
+                    ? "bg-[#9DB89F] text-white shadow-sm"
+                    : "text-textMuted hover:text-textHeading"
+                }`}
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-3.5 h-3.5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0 1 3.75 9.375v-4.5ZM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 0 1-1.125-1.125v-4.5ZM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0 1 13.5 9.375v-4.5Z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M17.25 12v1.5m0 0v1.5m0-1.5h1.5m-1.5 0h-1.5M13.5 17.25h1.5m0 0H15m0 0h1.5m0 0h1.5M13.5 19.5h1.5m-3-4.5h1.5m-1.5 1.5h.008v.008h-.008v-.008Zm0 3h.008v.008h-.008v-.008Zm1.5-1.5h.008v.008h-.008v-.008Zm0 3h.008v.008h-.008v-.008Zm3-1.5h.008v.008h-.008v-.008Zm0 3h.008v.008h-.008v-.008Zm1.5-3h.008v.008h-.008v-.008Zm0 1.5h.008v.008h-.008v-.008Z" />
+                </svg>
+                Barcode Scan
+              </button>
+            </div>
+
+            <div className="mt-4">
+              {addMode === "image" ? (
+                <div className="w-full flex flex-col items-center p-6 border border-dashed border-border hover:border-primary bg-[#F9FAF8] rounded-2xl transition-colors">
+                  <div className="w-12 h-12 rounded-full bg-[#EBF2EB] flex items-center justify-center mb-4">
+                    <CameraIcon className="w-6 h-6 text-primary" />
+                  </div>
+                  <h3 className="text-sm font-bold text-textHeading mb-1">Scan Pantry Photo</h3>
+                  <p className="text-xs text-textMuted text-center max-w-sm mb-6">
+                    Take or upload a photo of your fridge or pantry to automatically detect multiple ingredients.
+                  </p>
+                  
+                  <button
+                    type="button"
+                    onClick={triggerUpload}
+                    disabled={isUploading}
+                    className="px-6 py-2.5 bg-[#9DB89F] hover:bg-[#7A9E7E] text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1.5"
+                  >
+                    {isUploading ? (
+                      <div className="animate-spin h-3.5 w-3.5 border-2 border-white border-t-transparent rounded-full" />
+                    ) : (
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} className="w-4 h-4">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                      </svg>
+                    )}
+                    {isUploading ? progressMessage || "Uploading..." : "Choose Photo"}
+                  </button>
+                </div>
+              ) : (
+                <div className="w-full flex flex-col items-center">
+                  <BarcodeScanner
+                    onDetected={handleBarcodeDetected}
+                    isSearching={isScanningBarcode}
+                  />
+                  {barcodeError && (
+                    <div className="w-full max-w-md mt-4 rounded-xl border border-danger/20 bg-danger/10 p-3 text-xs font-medium text-danger text-center animate-fade-in">
+                      {barcodeError}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>

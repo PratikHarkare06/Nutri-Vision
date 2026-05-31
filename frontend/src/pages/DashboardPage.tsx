@@ -3,6 +3,7 @@ import { UploadCard } from "../components/UploadCard";
 import { useUploadStore } from "../store/uploadStore";
 import { Area, AreaChart, ResponsiveContainer, XAxis, Tooltip } from "recharts";
 import { SearchIcon, FireIcon, WaterIcon, CameraIcon, SpinnerIcon, CloseIcon } from "../components/icons";
+import { BarcodeScanner } from "../components/BarcodeScanner";
 
 type DashboardPageProps = {
   onUploadSuccess: () => void;
@@ -41,14 +42,15 @@ export const DashboardPage = ({ onUploadSuccess, onNavigate }: DashboardPageProp
   const setDragActive = useUploadStore((state) => state.setDragActive);
   const uploadImage = useUploadStore((state) => state.uploadImage);
   const uploadVoiceLog = useUploadStore((state) => state.uploadVoiceLog);
+  const scanBarcode = useUploadStore((state) => state.scanBarcode);
   const progressMessage = useUploadStore((state) => state.progressMessage);
 
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [hydrationML, setHydrationML] = useState(1800); // 1.8L
   const [showNotifications, setShowNotifications] = useState(false);
 
-  // Voice Logging States
-  const [loggingMode, setLoggingMode] = useState<"image" | "voice">("image");
+  // Voice & Barcode Logging States
+  const [loggingMode, setLoggingMode] = useState<"image" | "voice" | "barcode">("image");
   const [voiceTranscript, setVoiceTranscript] = useState("");
   const [isRecording, setIsRecording] = useState(false);
   const [speechError, setSpeechError] = useState("");
@@ -165,6 +167,17 @@ export const DashboardPage = ({ onUploadSuccess, onNavigate }: DashboardPageProp
     if (!voiceTranscript.trim()) return;
     clearError();
     const success = await uploadVoiceLog(voiceTranscript);
+    if (success) {
+      setIsUploadModalOpen(false);
+      onUploadSuccess();
+    }
+  };
+
+  // Handle barcode lookup detection
+  const handleBarcodeDetected = async (barcode: string) => {
+    if (!barcode.trim()) return;
+    clearError();
+    const success = await scanBarcode(barcode);
     if (success) {
       setIsUploadModalOpen(false);
       onUploadSuccess();
@@ -638,6 +651,26 @@ export const DashboardPage = ({ onUploadSuccess, onNavigate }: DashboardPageProp
                 </svg>
                 Voice Log
               </button>
+              <button
+                type="button"
+                onClick={() => {
+                  clearError();
+                  setSpeechError("");
+                  setLoggingMode("barcode");
+                }}
+                className={`px-5 py-2 rounded-full font-bold text-xs flex items-center gap-1.5 transition-all ${
+                  loggingMode === "barcode"
+                    ? "bg-[#9DB89F] text-white shadow-sm"
+                    : "text-textMuted hover:text-textHeading"
+                }`}
+              >
+                {/* Barcode icon */}
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-3.5 h-3.5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0 1 3.75 9.375v-4.5ZM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 0 1-1.125-1.125v-4.5ZM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0 1 13.5 9.375v-4.5Z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M17.25 12v1.5m0 0v1.5m0-1.5h1.5m-1.5 0h-1.5M13.5 17.25h1.5m0 0H15m0 0h1.5m0 0h1.5M13.5 19.5h1.5m-3-4.5h1.5m-1.5 1.5h.008v.008h-.008v-.008Zm0 3h.008v.008h-.008v-.008Zm1.5-1.5h.008v.008h-.008v-.008Zm0 3h.008v.008h-.008v-.008Zm3-1.5h.008v.008h-.008v-.008Zm0 3h.008v.008h-.008v-.008Zm1.5-3h.008v.008h-.008v-.008Zm0 1.5h.008v.008h-.008v-.008Z" />
+                </svg>
+                Barcode Scan
+              </button>
             </div>
             
             <div className="mt-4">
@@ -652,7 +685,7 @@ export const DashboardPage = ({ onUploadSuccess, onNavigate }: DashboardPageProp
                   }}
                   onFileSelected={handleFileSelected}
                 />
-              ) : (
+              ) : loggingMode === "voice" ? (
                 <div className="w-full flex flex-col items-center">
                   {/* Waveform Visualizer */}
                   <div className="flex justify-center items-end gap-1 h-8 mb-4">
@@ -746,6 +779,11 @@ export const DashboardPage = ({ onUploadSuccess, onNavigate }: DashboardPageProp
                     {isUploading ? progressMessage || "Analyzing..." : "Submit Voice Log"}
                   </button>
                 </div>
+              ) : (
+                <BarcodeScanner
+                  onDetected={handleBarcodeDetected}
+                  isSearching={isUploading}
+                />
               )}
             </div>
           </div>
