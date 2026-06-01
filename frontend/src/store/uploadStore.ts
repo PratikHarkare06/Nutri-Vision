@@ -2,6 +2,12 @@ import { create } from "zustand";
 import { getUploadErrorMessage, uploadImageRequest, scanBarcodeRequest, uploadPantryImageRequest, uploadVoiceLogRequest } from "../services/uploadApi";
 import type { UploadAnalysis, PantryAnalysis } from "../types";
 
+export type ScannedProduct = {
+  barcode: string;
+  name: string;
+  timestamp: number;
+};
+
 type UploadState = {
   analysis: UploadAnalysis | null;
   pantryAnalysis: PantryAnalysis | null;
@@ -10,6 +16,7 @@ type UploadState = {
   isUploading: boolean;
   progressMessage: string;
   controller: AbortController | null;
+  scannedHistory: ScannedProduct[];
   setAnalysis: (analysis: UploadAnalysis | null) => void;
   setPantryAnalysis: (analysis: PantryAnalysis | null) => void;
   setDragActive: (dragActive: boolean) => void;
@@ -21,6 +28,8 @@ type UploadState = {
   addIngredientsToPantry: (ingredients: string[]) => void;
   deductIngredientsFromPantry: (ingredients: string[]) => void;
   uploadVoiceLog: (transcript: string) => Promise<boolean>;
+  addScannedProductToHistory: (barcode: string, name: string) => void;
+  clearScannedHistory: () => void;
 };
 
 const allowedTypes = ["image/jpeg", "image/jpg", "image/png"];
@@ -50,6 +59,14 @@ export const useUploadStore = create<UploadState>((set, get) => ({
   isUploading: false,
   progressMessage: "",
   controller: null,
+  scannedHistory: (() => {
+    try {
+      const stored = localStorage.getItem("scannedHistory");
+      return stored ? JSON.parse(stored) : [];
+    } catch (e) {
+      return [];
+    }
+  })(),
   setAnalysis: (analysis) => set({ analysis }),
   setPantryAnalysis: (pantryAnalysis) => set({ pantryAnalysis }),
   setDragActive: (dragActive) => set({ dragActive }),
@@ -142,6 +159,10 @@ export const useUploadStore = create<UploadState>((set, get) => ({
         progressMessage: "",
         isUploading: false,
       });
+      if (response && response.success && response.data && response.data.foods.length > 0) {
+        const foodName = response.data.foods[0].name;
+        get().addScannedProductToHistory(barcode.trim(), foodName);
+      }
       return true;
     } catch (error) {
       set({
@@ -268,5 +289,24 @@ export const useUploadStore = create<UploadState>((set, get) => ({
       });
       return false;
     }
+  },
+  addScannedProductToHistory: (barcode: string, name: string) => {
+    const current = get().scannedHistory;
+    const filtered = current.filter(p => p.barcode !== barcode);
+    const updated = [
+      { barcode, name, timestamp: Date.now() },
+      ...filtered
+    ].slice(0, 10);
+    
+    set({ scannedHistory: updated });
+    try {
+      localStorage.setItem("scannedHistory", JSON.stringify(updated));
+    } catch (e) {}
+  },
+  clearScannedHistory: () => {
+    set({ scannedHistory: [] });
+    try {
+      localStorage.removeItem("scannedHistory");
+    } catch (e) {}
   },
 }));

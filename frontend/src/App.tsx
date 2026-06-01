@@ -43,7 +43,7 @@ function App() {
         ) : pathname === "/diet-plan" ? (
           <DietPlanPage />
         ) : pathname === "/pantry" ? (
-          <PantryPage />
+          <PantryPage onNavigate={navigate} />
         ) : pathname === "/workouts" ? (
           <WorkoutPage onNavigate={navigate} />
         ) : (

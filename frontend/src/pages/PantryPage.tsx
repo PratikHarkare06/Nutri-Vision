@@ -76,7 +76,11 @@ const mockRecipes = [
   },
 ];
 
-export const PantryPage = () => {
+type PantryPageProps = {
+  onNavigate?: (path: string) => void;
+};
+
+export const PantryPage = ({ onNavigate }: PantryPageProps) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [filter, setFilter] = useState<"All" | "Fresh" | "Dry">("All");
   const [activeRecipe, setActiveRecipe] = useState<any | null>(null);
@@ -97,7 +101,11 @@ export const PantryPage = () => {
     setPantryAnalysis,
     deductIngredientsFromPantry,
     addIngredientsToPantry,
-    clearError
+    clearError,
+    scannedHistory,
+    addScannedProductToHistory,
+    clearScannedHistory,
+    scanBarcode
   } = useUploadStore();
 
   const handleBarcodeDetected = async (barcode: string) => {
@@ -108,6 +116,7 @@ export const PantryPage = () => {
       if (result && result.success && result.data && result.data.foods.length > 0) {
         const foodName = result.data.foods[0].name;
         addIngredientsToPantry([foodName]);
+        addScannedProductToHistory(barcode, foodName);
         alert(`Successfully added ${foodName} to your pantry!`);
         setIsAddModalOpen(false);
       } else {
@@ -238,6 +247,78 @@ export const PantryPage = () => {
         
         {/* Left Column (Current Inventory) */}
         <div className="space-y-6">
+          
+          {/* Recently Scanned Products Shelf */}
+          {scannedHistory && scannedHistory.length > 0 && (
+            <div className="bg-[#F5F6F1] border border-border rounded-3xl p-5 mb-6 space-y-3">
+              <div className="flex justify-between items-center">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm">🏷️</span>
+                  <h3 className="text-sm font-bold text-textHeading">Recently Scanned Products</h3>
+                </div>
+                <button
+                  onClick={() => clearScannedHistory && clearScannedHistory()}
+                  className="text-[9px] font-bold text-textMuted hover:text-rose-500 transition-colors uppercase tracking-wider"
+                >
+                  Clear History
+                </button>
+              </div>
+
+              <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-none snap-x">
+                {scannedHistory.map((product) => (
+                  <div
+                    key={`${product.barcode}-${product.timestamp}`}
+                    className="min-w-[190px] max-w-[210px] bg-white border border-border rounded-2xl p-3 flex flex-col justify-between shadow-sm hover:shadow-md transition-shadow snap-start shrink-0"
+                  >
+                    <div>
+                      <div className="flex items-center gap-1 mb-1">
+                        <span className="text-[9px] bg-[#EBF2EB] border border-[#D4E6D5] text-[#7A9E7E] px-1.5 py-0.5 rounded-md font-bold uppercase tracking-wider font-mono">
+                          Barcode
+                        </span>
+                        <span className="text-[8px] text-textMuted font-mono truncate max-w-[100px]">
+                          {product.barcode}
+                        </span>
+                      </div>
+                      <h4 className="font-bold text-textHeading text-xs line-clamp-2 capitalize" title={product.name}>
+                        {product.name}
+                      </h4>
+                    </div>
+
+                    <div className="flex gap-2 mt-3 pt-2 border-t border-[#F5F6F1]">
+                      {/* Add to Pantry Button */}
+                      <button
+                        onClick={() => {
+                          addIngredientsToPantry([product.name]);
+                          alert(`Added ${product.name} to Pantry!`);
+                        }}
+                        className="flex-1 py-1.5 bg-[#EBF2EB] hover:bg-[#D4E6D5] text-[#7A9E7E] rounded-xl text-[10px] font-bold transition-all border border-[#D4E6D5] flex items-center justify-center gap-1"
+                        title="Add ingredient to pantry"
+                      >
+                        <span>＋</span> Pantry
+                      </button>
+
+                      {/* Log Meal Button */}
+                      <button
+                        onClick={async () => {
+                          const success = await scanBarcode(product.barcode);
+                          if (success) {
+                            onNavigate?.("/results");
+                          } else {
+                            alert("Failed to log product as meal. Please check the barcode.");
+                          }
+                        }}
+                        className="flex-1 py-1.5 bg-[#FEF0EB] hover:bg-[#FEE2D5] text-[#E8815A] rounded-xl text-[10px] font-bold transition-all border border-[#FEE2D5] flex items-center justify-center gap-1"
+                        title="Log this product as a meal"
+                      >
+                        <span>⚡</span> Log
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-lg font-bold text-textHeading">Current Inventory</h2>
             
