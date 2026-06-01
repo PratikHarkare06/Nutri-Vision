@@ -25,7 +25,8 @@ const mockRoutines = [
     level: "Beginner",
     img: "https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?w=600&auto=format&fit=crop&q=80",
     color: "#EBF2EB",
-    textColor: "#7A9E7E"
+    textColor: "#7A9E7E",
+    muscles: ["Abs", "Legs", "Back"]
   },
   {
     id: "r2",
@@ -38,7 +39,8 @@ const mockRoutines = [
     level: "Advanced",
     img: "https://images.unsplash.com/photo-1538805060514-97d9cc17730c?w=600&auto=format&fit=crop&q=80",
     color: "#FEF0EB",
-    textColor: "#E8815A"
+    textColor: "#E8815A",
+    muscles: ["Quads", "Abs", "Shoulders", "Chest", "Legs"]
   },
   {
     id: "r3",
@@ -51,7 +53,8 @@ const mockRoutines = [
     level: "Intermediate",
     img: "https://images.unsplash.com/photo-1517838277536-f5f99be501cd?w=600&auto=format&fit=crop&q=80",
     color: "#EBF2F8",
-    textColor: "#7A9EBE"
+    textColor: "#7A9EBE",
+    muscles: ["Chest", "Shoulders", "Arms", "Back"]
   }
 ];
 
@@ -110,6 +113,8 @@ export const WorkoutPage = ({ onNavigate }: WorkoutPageProps) => {
   const [sessionsCount, setSessionsCount] = useState(3);
 
   const [workoutCompleted, setWorkoutCompleted] = useState<boolean>(false);
+  const [selectedMuscle, setSelectedMuscle] = useState<string | null>(null);
+  const [hoverMuscle, setHoverMuscle] = useState<string | null>(null);
 
   const playMetronomeTick = (frequency: number, duration: number) => {
     try {
@@ -339,6 +344,34 @@ export const WorkoutPage = ({ onNavigate }: WorkoutPageProps) => {
     );
   }
 
+  const renderMusclePath = (
+    muscle: string, 
+    pathData: string
+  ) => {
+    const isSelected = selectedMuscle === muscle;
+    const isHovered = hoverMuscle === muscle;
+    
+    let fill = "#FFFFFF";
+    if (isSelected) {
+      fill = "#7A9E7E"; // Sage active
+    } else if (isHovered) {
+      fill = "#EBF2EB"; // Sage hover
+    }
+
+    return (
+      <path
+        d={pathData}
+        fill={fill}
+        stroke="#C8CBBC"
+        strokeWidth="1.5"
+        className="transition-colors duration-200 cursor-pointer"
+        onMouseEnter={() => setHoverMuscle(muscle)}
+        onMouseLeave={() => setHoverMuscle(null)}
+        onClick={() => setSelectedMuscle(selectedMuscle === muscle ? null : muscle)}
+      />
+    );
+  };
+
   const activePlan: DailyWorkoutPlan | undefined = workoutPlan?.find(d => d.day === selectedDay);
 
   return (
@@ -440,6 +473,87 @@ export const WorkoutPage = ({ onNavigate }: WorkoutPageProps) => {
         {/* Left Column: Recommended Routines, AI Trainer, Weekly Activity */}
         <div className="space-y-8">
           
+          {/* Interactive Muscle Map Card */}
+          <section className="bg-white rounded-[24px] border border-border p-6 shadow-sm space-y-4 animate-slide-up">
+            <div className="flex justify-between items-center">
+              <div>
+                <h3 className="font-bold text-textHeading text-base">Anatomical Muscle Map</h3>
+                <p className="text-xs text-textMuted mt-0.5">
+                  Select a muscle group to filter workouts and target your training.
+                </p>
+              </div>
+              {selectedMuscle && (
+                <button
+                  onClick={() => setSelectedMuscle(null)}
+                  className="px-2.5 py-1 bg-[#FEF0EB] text-[#E8815A] hover:bg-[#FEE2D5] rounded-full text-[10px] font-bold uppercase transition-all shadow-sm animate-fade-in"
+                >
+                  Clear Filter ✕
+                </button>
+              )}
+            </div>
+
+            <div className="grid grid-cols-2 gap-8 py-4 bg-[#F6F8F3] rounded-[20px] border border-border/60 justify-items-center">
+              {/* Front View */}
+              <div className="flex flex-col items-center">
+                <span className="text-[10px] font-bold text-textMuted uppercase tracking-wider mb-3">Front View</span>
+                <svg className="w-full max-w-[130px] h-auto" viewBox="0 0 160 260">
+                  {/* Static background outline / Head / Neck */}
+                  <circle cx="80" cy="30" r="14" fill="#E2E4DC" stroke="#C8CBBC" strokeWidth="1.5" />
+                  <rect x="76" y="44" width="8" height="8" fill="#E2E4DC" stroke="#C8CBBC" strokeWidth="1.5" />
+                  <circle cx="16" cy="136" r="5" fill="#E2E4DC" stroke="#C8CBBC" strokeWidth="1.5" />
+                  <circle cx="144" cy="136" r="5" fill="#E2E4DC" stroke="#C8CBBC" strokeWidth="1.5" />
+                  <path d="M 46,246 H 62 L 66,252 H 42 Z" fill="#E2E4DC" stroke="#C8CBBC" strokeWidth="1.5" />
+                  <path d="M 98,246 H 114 L 118,252 H 94 Z" fill="#E2E4DC" stroke="#C8CBBC" strokeWidth="1.5" />
+
+                  {/* Muscles */}
+                  {renderMusclePath("Shoulders", "M 42,52 C 34,52 32,60 32,66 C 32,74 40,76 44,76 C 44,62 42,52 42,52 Z M 118,52 C 126,52 128,60 128,66 C 128,74 120,76 116,76 C 116,62 118,52 118,52 Z")}
+                  {renderMusclePath("Chest", "M 50,56 H 78 V 82 H 56 C 52,82 50,78 50,74 Z M 82,56 H 110 V 74 C 110,78 108,82 104,82 H 82 Z")}
+                  {renderMusclePath("Abs", "M 54,86 H 106 V 128 C 106,132 102,136 98,136 H 62 C 58,136 54,132 54,128 Z")}
+                  {renderMusclePath("Arms", "M 24,70 V 126 C 24,130 21,133 18,133 C 15,133 12,130 12,126 V 70 C 12,66 15,63 18,63 C 21,63 24,66 24,70 Z M 148,70 V 126 C 148,130 145,133 142,133 C 139,133 136,130 136,126 V 70 C 136,66 139,63 142,63 C 145,63 148,66 148,70 Z")}
+                  {renderMusclePath("Quads", "M 46,140 H 78 V 200 H 50 C 47,200 46,197 46,194 Z M 82,140 H 114 V 194 C 114,197 113,200 110,200 H 82 Z")}
+                  {renderMusclePath("Legs", "M 50,204 H 74 V 244 H 56 C 52,244 50,240 50,236 Z M 86,204 H 110 V 236 C 110,240 108,244 104,244 H 86 Z")}
+                </svg>
+              </div>
+
+              {/* Back View */}
+              <div className="flex flex-col items-center">
+                <span className="text-[10px] font-bold text-textMuted uppercase tracking-wider mb-3">Back View</span>
+                <svg className="w-full max-w-[130px] h-auto" viewBox="0 0 160 260">
+                  {/* Static background outline / Head / Neck */}
+                  <circle cx="80" cy="30" r="14" fill="#E2E4DC" stroke="#C8CBBC" strokeWidth="1.5" />
+                  <rect x="76" y="44" width="8" height="8" fill="#E2E4DC" stroke="#C8CBBC" strokeWidth="1.5" />
+                  <circle cx="16" cy="136" r="5" fill="#E2E4DC" stroke="#C8CBBC" strokeWidth="1.5" />
+                  <circle cx="144" cy="136" r="5" fill="#E2E4DC" stroke="#C8CBBC" strokeWidth="1.5" />
+                  <path d="M 46,246 H 62 L 66,252 H 42 Z" fill="#E2E4DC" stroke="#C8CBBC" strokeWidth="1.5" />
+                  <path d="M 98,246 H 114 L 118,252 H 94 Z" fill="#E2E4DC" stroke="#C8CBBC" strokeWidth="1.5" />
+
+                  {/* Muscles */}
+                  {renderMusclePath("Shoulders", "M 42,52 C 34,52 32,60 32,66 C 32,74 40,76 44,76 C 44,62 42,52 42,52 Z M 118,52 C 126,52 128,60 128,66 C 128,74 120,76 116,76 C 116,62 118,52 118,52 Z")}
+                  {renderMusclePath("Back", "M 46,56 H 114 L 98,128 H 62 Z")}
+                  {renderMusclePath("Arms", "M 24,70 V 126 C 24,130 21,133 18,133 C 15,133 12,130 12,126 V 70 C 12,66 15,63 18,63 C 21,63 24,66 24,70 Z M 148,70 V 126 C 148,130 145,133 142,133 C 139,133 136,130 136,126 V 70 C 136,66 139,63 142,63 C 145,63 148,66 148,70 Z")}
+                  {renderMusclePath("Glutes", "M 46,132 H 114 V 148 C 114,154 108,156 102,156 H 58 C 52,156 46,154 46,148 Z")}
+                  {renderMusclePath("Legs", "M 46,160 H 78 V 244 H 50 C 47,244 46,240 46,236 Z M 82,160 H 114 V 244 H 110 C 110,240 108,244 104,244 H 82 Z")}
+                </svg>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-1.5 justify-center">
+              {["Chest", "Shoulders", "Abs", "Arms", "Quads", "Back", "Glutes", "Legs"].map((m) => (
+                <button
+                  key={m}
+                  onClick={() => setSelectedMuscle(selectedMuscle === m ? null : m)}
+                  className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all border ${
+                    selectedMuscle === m
+                      ? "bg-[#9DB89F] text-white border-[#9DB89F]"
+                      : "bg-white text-textMuted border-border hover:border-primary hover:text-textHeading"
+                  }`}
+                >
+                  {m}
+                </button>
+              ))}
+            </div>
+          </section>
+
           {/* Recommended Routines */}
           <div className="space-y-4 animate-slide-up">
             <div className="flex justify-between items-center">
@@ -453,7 +567,7 @@ export const WorkoutPage = ({ onNavigate }: WorkoutPageProps) => {
             </div>
 
             <div className="space-y-4">
-              {mockRoutines.map((routine) => (
+              {(selectedMuscle ? mockRoutines.filter(r => r.muscles?.includes(selectedMuscle)) : mockRoutines).map((routine) => (
                 <div 
                   key={routine.id}
                   className="bg-white border border-border rounded-3xl overflow-hidden hover:shadow-md transition-shadow p-4 flex gap-5 shadow-sm"
