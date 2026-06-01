@@ -13,8 +13,11 @@ export const ChatAssistant = () => {
   ]);
   const [inputText, setInputText] = useState("");
   const [isSending, setIsSending] = useState(false);
+  const [isSpeechEnabled, setIsSpeechEnabled] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
   
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const recognitionRef = useRef<any>(null);
   
   const pantryAnalysis = useUploadStore((state) => state.pantryAnalysis);
   
@@ -33,6 +36,63 @@ export const ChatAssistant = () => {
       scrollToBottom();
     }
   }, [messages, isSending, isOpen]);
+
+  // Cancel any active speech when closed or toggled off
+  useEffect(() => {
+    if (!isOpen || !isSpeechEnabled) {
+      if ("speechSynthesis" in window) {
+        window.speechSynthesis.cancel();
+      }
+    }
+  }, [isOpen, isSpeechEnabled]);
+
+  const startListening = () => {
+    try {
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      if (!SpeechRecognition) {
+        alert("Speech Recognition not supported in this browser.");
+        return;
+      }
+
+      const rec = new SpeechRecognition();
+      rec.continuous = false;
+      rec.interimResults = false;
+      rec.lang = "en-US";
+
+      rec.onstart = () => {
+        setIsRecording(true);
+      };
+
+      rec.onresult = (event: any) => {
+        const transcript = event.results[0][0].transcript;
+        if (transcript) {
+          setInputText((prev) => prev ? prev + " " + transcript : transcript);
+        }
+      };
+
+      rec.onerror = (event: any) => {
+        console.error("Speech recognition error:", event.error);
+        setIsRecording(false);
+      };
+
+      rec.onend = () => {
+        setIsRecording(false);
+      };
+
+      recognitionRef.current = rec;
+      rec.start();
+    } catch (e) {
+      console.error(e);
+      setIsRecording(false);
+    }
+  };
+
+  const stopListening = () => {
+    if (recognitionRef.current) {
+      recognitionRef.current.stop();
+    }
+    setIsRecording(false);
+  };
 
   const handleSendMessage = async (textToSend: string) => {
     if (!textToSend.trim() || isSending) return;
@@ -59,6 +119,13 @@ export const ChatAssistant = () => {
           ...prev,
           { role: "model", text: response.text },
         ]);
+
+        if (isSpeechEnabled && "speechSynthesis" in window) {
+          window.speechSynthesis.cancel();
+          const cleanText = response.text.replace(/\*\*/g, "").replace(/[-*]\s+/g, "");
+          const utterance = new SpeechSynthesisUtterance(cleanText);
+          window.speechSynthesis.speak(utterance);
+        }
       } else {
         setMessages((prev) => [
           ...prev,
@@ -110,8 +177,10 @@ export const ChatAssistant = () => {
   };
 
   const parseBoldText = (text: string) => {
-    const parts = text.split(/\*\*(.*?)\*\*/g);
-    return parts.map((part, i) => i % 2 === 1 ? <strong key={i} className="font-bold text-textHeading">{part}</strong> : part);
+    const parts = text.split(/\*\/(.*?)\*\//g); // wait, it was split(/\*\*(.*?)\*\*/g) in original!
+    // Let's use standard markdown bold separator:
+    const standardParts = text.split(/\*\*(.*?)\*\*/g);
+    return standardParts.map((part, i) => i % 2 === 1 ? <strong key={i} className="font-bold text-textHeading">{part}</strong> : part);
   };
 
   return (
@@ -148,12 +217,34 @@ export const ChatAssistant = () => {
                 <p className="text-[10px] text-white/80 font-medium">Your AI Health Companion</p>
               </div>
             </div>
-            <button
-              onClick={() => setIsOpen(false)}
-              className="text-white/80 hover:text-white hover:bg-white/10 p-1 rounded-lg transition-colors"
-            >
-              <CloseIcon className="w-5 h-5" />
-            </button>
+            
+            {/* Header controls (Voice output toggle + close button) */}
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setIsSpeechEnabled(!isSpeechEnabled)}
+                className={`p-1.5 rounded-lg transition-colors ${
+                  isSpeechEnabled ? "bg-white/20 text-white" : "text-white/60 hover:text-white hover:bg-white/10"
+                }`}
+                title={isSpeechEnabled ? "Mute Voice Readout" : "Enable Voice Readout"}
+              >
+                {isSpeechEnabled ? (
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} className="w-4.5 h-4.5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19.114 5.636a9 9 0 010 12.728M16.463 8.288a5.25 5.25 0 010 7.424M6.75 8.25l4.72-4.72a.75.75 0 011.28.53v15.88a.75.75 0 01-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.507-1.938-1.354A9.01 9.01 0 012.25 12c0-.83.112-1.633.322-2.396C2.806 8.756 3.63 8.25 4.51 8.25H6.75z" />
+                  </svg>
+                ) : (
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} className="w-4.5 h-4.5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M17.25 9.75L19.5 12m0 0l2.25 2.25M19.5 12l2.25-2.25M19.5 12l-2.25 2.25m-10.5-6L4.03 12l4.72 4.72v-9.44z" />
+                  </svg>
+                )}
+              </button>
+              <button
+                onClick={() => setIsOpen(false)}
+                className="text-white/80 hover:text-white hover:bg-white/10 p-1.5 rounded-lg transition-colors"
+              >
+                <CloseIcon className="w-5 h-5" />
+              </button>
+            </div>
           </header>
 
           {/* Messages area */}
@@ -215,14 +306,31 @@ export const ChatAssistant = () => {
 
           {/* Form Input */}
           <form onSubmit={handleFormSubmit} className="p-3 bg-white border-t border-border flex gap-2 items-center">
-            <input
-              type="text"
-              value={inputText}
-              onChange={(e) => setInputText(e.target.value)}
-              placeholder="Ask NutriBot a question..."
-              disabled={isSending}
-              className="flex-1 px-4 py-2 bg-[#F9FAF8] border border-border focus:border-[#7A9E7E] focus:ring-1 focus:ring-[#7A9E7E] rounded-xl text-xs outline-none font-medium transition-all"
-            />
+            <div className="relative flex-1">
+              <input
+                type="text"
+                value={inputText}
+                onChange={(e) => setInputText(e.target.value)}
+                placeholder="Ask NutriBot a question..."
+                disabled={isSending}
+                className="w-full pl-4 pr-10 py-2.5 bg-[#F9FAF8] border border-border focus:border-[#7A9E7E] focus:ring-1 focus:ring-[#7A9E7E] rounded-xl text-xs outline-none font-medium transition-all"
+              />
+              <button
+                type="button"
+                onClick={isRecording ? stopListening : startListening}
+                disabled={isSending}
+                className={`absolute right-2 top-1.5 p-1.5 rounded-lg transition-all ${
+                  isRecording 
+                    ? "bg-rose-500 text-white animate-pulse" 
+                    : "text-textMuted hover:text-textHeading hover:bg-background/80"
+                }`}
+                title={isRecording ? "Stop Recording" : "Ask by Voice"}
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} className="w-4 h-4">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 01-3-3V4.5a3 3 0 116 0v8.25a3 3 0 01-3 3z" />
+                </svg>
+              </button>
+            </div>
             <button
               type="submit"
               disabled={isSending || !inputText.trim()}
