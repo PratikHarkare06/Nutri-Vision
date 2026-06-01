@@ -348,6 +348,23 @@ export const ProfilePage = ({ onNavigate }: ProfilePageProps) => {
                   <span className="text-textMuted text-lg font-bold">&gt;</span>
                 </div>
 
+                {/* 2. Progress & Transformation */}
+                <div 
+                  onClick={() => setShowTracker(true)}
+                  className="bg-white border border-border rounded-2xl p-4 flex justify-between items-center hover:shadow-md cursor-pointer transition-all"
+                >
+                  <div className="flex items-center gap-3.5">
+                    <div className="w-10 h-10 rounded-full bg-[#FEF0EB] flex items-center justify-center text-[#E8815A]">
+                      📈
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-textHeading text-sm">Progress &amp; Transformation</h4>
+                      <p className="text-xs text-textMuted mt-0.5">Track your weight and photos timeline</p>
+                    </div>
+                  </div>
+                  <span className="text-textMuted text-lg font-bold">&gt;</span>
+                </div>
+
                 {/* 3. Notifications */}
                 <div 
                   onClick={() => alert("Notification settings coming soon...")}
