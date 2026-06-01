@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { fetchProfileRequest } from "../services/profileApi";
-import { fetchWorkoutPlanRequest, generateWorkoutPlanRequest } from "../services/workoutApi";
+import { fetchWorkoutPlanRequest, generateWorkoutPlanRequest, completeWorkoutSessionRequest } from "../services/workoutApi";
 import type { UserProfile, DailyWorkoutPlan } from "../types";
 import { SparklesIcon, BoltIcon, FireIcon } from "../components/icons";
 import {
@@ -150,6 +150,25 @@ export const WorkoutPage = ({ onNavigate }: WorkoutPageProps) => {
         const utterance = new SpeechSynthesisUtterance("Workout complete! Congratulations, you did an amazing job today!");
         window.speechSynthesis.speak(utterance);
       }
+      
+      const duration = activeWorkoutCompanion.durationMins || 30;
+      const calories = duration * 8; // average 8 kcal/min
+      completeWorkoutSessionRequest(activeWorkoutCompanion.focus || "Custom Workout", duration, calories)
+        .then((res) => {
+          if (res.success) {
+            setBurnedCalories((prev) => prev + calories);
+            setSessionsCount((prev) => prev + 1);
+            if (res.data.levelUp) {
+              alert(`🎉 Level Up! You reached Level ${res.data.level}!`);
+            }
+            if (res.data.badgeUnlocked) {
+              alert(`🏅 New Badge Unlocked: ${res.data.badgeUnlocked}!`);
+            }
+          }
+        })
+        .catch((err) => {
+          console.error("Failed to log completed workout session:", err);
+        });
     } else {
       setTimerType("rest");
       setTimerSeconds(ex.restSecs || 30);

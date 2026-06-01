@@ -17,3 +17,28 @@ export const fetchWorkoutPlanRequest = async (signal?: AbortSignal): Promise<{ s
   const response = await workoutApi.get("/workout", { signal });
   return response.data;
 };
+
+export const completeWorkoutSessionRequest = async (
+  workout_name: string,
+  duration_mins: number,
+  calories_burned: number,
+  date?: string
+): Promise<{
+  success: boolean;
+  data: {
+    log: any;
+    xp: number;
+    level: number;
+    levelUp: boolean;
+    badgeUnlocked: string | null;
+    unlockedBadges: string[];
+  };
+}> => {
+  const response = await workoutApi.post("/workout/complete", {
+    workout_name,
+    duration_mins,
+    calories_burned,
+    date,
+  });
+  return response.data;
+};
