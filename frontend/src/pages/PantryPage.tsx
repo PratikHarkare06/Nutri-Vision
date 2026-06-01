@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import { SparklesIcon, CameraIcon, CloseIcon } from "../components/icons";
 import { useUploadStore } from "../store/uploadStore";
 import { generateZeroWasteRecipeRequest, scanBarcodeRequest } from "../services/uploadApi";
@@ -92,6 +92,11 @@ export const PantryPage = ({ onNavigate }: PantryPageProps) => {
   const [isScanningBarcode, setIsScanningBarcode] = useState(false);
   const [barcodeError, setBarcodeError] = useState("");
 
+  // Interactive checklist & kitchen timer states
+  const [completedSteps, setCompletedSteps] = useState<number[]>([]);
+  const [kitchenTimerSeconds, setKitchenTimerSeconds] = useState<number>(0);
+  const [isKitchenTimerRunning, setIsKitchenTimerRunning] = useState<boolean>(false);
+
   const {
     pantryAnalysis,
     isUploading,
@@ -140,6 +145,46 @@ export const PantryPage = ({ onNavigate }: PantryPageProps) => {
   const handleReset = () => {
     setPantryAnalysis(null);
   };
+
+  const handleToggleStep = (idx: number) => {
+    if (idx > completedSteps.length) return; // locked
+    if (completedSteps.includes(idx)) {
+      setCompletedSteps((prev) => prev.filter((step) => step < idx));
+    } else {
+      setCompletedSteps((prev) => [...prev, idx]);
+    }
+  };
+
+  // Reset checklist and timer state when activeRecipe changes
+  useEffect(() => {
+    setCompletedSteps([]);
+    setKitchenTimerSeconds(0);
+    setIsKitchenTimerRunning(false);
+  }, [activeRecipe]);
+
+  // Kitchen Timer tick down effect
+  useEffect(() => {
+    let interval: any = null;
+    if (isKitchenTimerRunning && kitchenTimerSeconds > 0) {
+      interval = setInterval(() => {
+        setKitchenTimerSeconds((prev) => {
+          if (prev <= 1) {
+            clearInterval(interval);
+            setIsKitchenTimerRunning(false);
+            if ("speechSynthesis" in window) {
+              window.speechSynthesis.cancel();
+              const utterance = new SpeechSynthesisUtterance("Kitchen timer completed!");
+              window.speechSynthesis.speak(utterance);
+            }
+            alert("⏰ Kitchen Timer Finished!");
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [isKitchenTimerRunning, kitchenTimerSeconds]);
 
   const triggerUpload = () => {
     fileInputRef.current?.click();
@@ -586,14 +631,137 @@ export const PantryPage = ({ onNavigate }: PantryPageProps) => {
               <div>
                 <h3 className="text-xs font-bold text-textHeading uppercase tracking-wider mb-3">Step-by-step Instructions</h3>
                 <div className="space-y-3">
-                  {(activeRecipe.instructions || []).map((step: string, i: number) => (
-                    <div key={i} className="flex gap-3 items-start">
-                      <span className="w-5 h-5 rounded-full bg-[#EBF2EB] text-[#7A9E7E] font-bold text-[10px] flex items-center justify-center shrink-0 mt-0.5">
-                        {i + 1}
-                      </span>
-                      <p className="text-xs text-textHeading leading-relaxed">{step}</p>
-                    </div>
-                  ))}
+                  {(activeRecipe.instructions || []).map((step: string, i: number) => {
+                    const isCompleted = completedSteps.includes(i);
+                    const isActive = completedSteps.length === i;
+                    const isLocked = i > completedSteps.length;
+
+                    return (
+                      <div 
+                        key={i} 
+                        onClick={() => handleToggleStep(i)}
+                        className={`flex gap-4 items-start p-3.5 rounded-2xl border transition-all duration-300 ${
+                          isActive 
+                            ? "bg-[#EBF2EB]/20 border-[#7A9E7E]/50 shadow-sm cursor-pointer scale-[1.01]" 
+                            : isCompleted
+                            ? "bg-white border-border/40 opacity-70 cursor-pointer"
+                            : "bg-white border-border/20 opacity-40 cursor-not-allowed"
+                        }`}
+                      >
+                        {/* Step Checkbox/Badge */}
+                        <div className="shrink-0 mt-0.5">
+                          {isCompleted ? (
+                            <span className="w-6 h-6 rounded-full bg-[#7A9E7E] text-white font-bold text-xs flex items-center justify-center shadow-sm">
+                              ✓
+                            </span>
+                          ) : isActive ? (
+                            <span className="w-6 h-6 rounded-full bg-white border-2 border-[#7A9E7E] text-[#7A9E7E] font-bold text-xs flex items-center justify-center shadow-sm">
+                              {i + 1}
+                            </span>
+                          ) : (
+                            <span className="w-6 h-6 rounded-full bg-[#F5F6F1] border border-border text-textMuted/60 font-bold text-xs flex items-center justify-center">
+                              🔒
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Step Description */}
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-xs leading-relaxed transition-all ${
+                            isCompleted 
+                              ? "text-textMuted line-through decoration-[#7A9E7E]/60 font-medium" 
+                              : isActive
+                              ? "text-textHeading font-semibold"
+                              : "text-textHeading/80"
+                          }`}>
+                            {step}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Custom Kitchen Timer Widget */}
+              <div className="bg-[#F5F6F1] border border-border rounded-2xl p-5 space-y-3.5">
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-sm">🍳</span>
+                    <h4 className="text-xs font-bold text-textHeading uppercase tracking-wider">Kitchen Timer</h4>
+                  </div>
+                  {kitchenTimerSeconds > 0 && (
+                    <span className="text-[10px] font-bold bg-[#EBF2EB] border border-[#D4E6D5] text-[#7A9E7E] px-2 py-0.5 rounded-full uppercase">
+                      {isKitchenTimerRunning ? "⏱️ Running" : "⏸️ Paused"}
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                  {/* Digital Clock Display */}
+                  <div className="text-3xl font-black text-textHeading font-mono tracking-tight select-none">
+                    {`${Math.floor(kitchenTimerSeconds / 60).toString().padStart(2, "0")}:${(kitchenTimerSeconds % 60).toString().padStart(2, "0")}`}
+                  </div>
+
+                  {/* Preset Buttons */}
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => {
+                        setKitchenTimerSeconds(prev => prev + 60);
+                        setIsKitchenTimerRunning(true);
+                      }}
+                      className="px-2.5 py-1 bg-white hover:bg-[#E2E4DC] border border-border rounded-lg text-[10px] font-bold text-textHeading transition-colors shadow-sm"
+                    >
+                      +1 Min
+                    </button>
+                    <button
+                      onClick={() => {
+                        setKitchenTimerSeconds(prev => prev + 180);
+                        setIsKitchenTimerRunning(true);
+                      }}
+                      className="px-2.5 py-1 bg-white hover:bg-[#E2E4DC] border border-border rounded-lg text-[10px] font-bold text-textHeading transition-colors shadow-sm"
+                    >
+                      +3 Min
+                    </button>
+                    <button
+                      onClick={() => {
+                        setKitchenTimerSeconds(prev => prev + 300);
+                        setIsKitchenTimerRunning(true);
+                      }}
+                      className="px-2.5 py-1 bg-white hover:bg-[#E2E4DC] border border-border rounded-lg text-[10px] font-bold text-textHeading transition-colors shadow-sm"
+                    >
+                      +5 Min
+                    </button>
+                  </div>
+
+                  {/* Primary Controls */}
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => {
+                        if (kitchenTimerSeconds > 0) {
+                          setIsKitchenTimerRunning(!isKitchenTimerRunning);
+                        } else {
+                          alert("Please set a time first using the presets above.");
+                        }
+                      }}
+                      className={`px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-sm ${
+                        isKitchenTimerRunning
+                          ? "bg-[#E2E4DC] hover:bg-[#D4D6CC] text-textHeading"
+                          : "bg-[#7A9E7E] hover:bg-[#5C7A60] text-white"
+                      }`}
+                    >
+                      {isKitchenTimerRunning ? "Pause" : "Start"}
+                    </button>
+                    <button
+                      onClick={() => {
+                        setIsKitchenTimerRunning(false);
+                        setKitchenTimerSeconds(0);
+                      }}
+                      className="px-4 py-2 bg-white hover:bg-[#FEF0EB] hover:text-[#E8815A] hover:border-[#FEE2D5] border border-border rounded-xl text-xs font-bold text-textMuted transition-all shadow-sm"
+                    >
+                      Reset
+                    </button>
+                  </div>
                 </div>
               </div>
 
