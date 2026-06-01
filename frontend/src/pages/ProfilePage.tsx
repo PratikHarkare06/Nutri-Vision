@@ -14,6 +14,7 @@ import {
 } from "../services/profileApi";
 import type { UserProfile } from "../types";
 import { ProgressTracker } from "../components/ProgressTracker";
+import { BadgesShowcase } from "../components/BadgesShowcase";
 
 type ProfilePageProps = {
   onNavigate: (nextPath: string) => void;
@@ -66,6 +67,9 @@ const defaultValues: ProfileFormValues = {
     fiber: 25,
     sodium: 2000,
   },
+  xp: 0,
+  level: 1,
+  unlockedBadges: [],
 };
 
 const mapProfileToFormValues = (profile: UserProfile): ProfileFormValues => ({
@@ -82,6 +86,9 @@ const mapProfileToFormValues = (profile: UserProfile): ProfileFormValues => ({
   healthGoals: profile.healthGoals || [],
   primaryGoal: profile.primaryGoal || "Weight Maintenance",
   nutritionalTargets: profile.nutritionalTargets || defaultValues.nutritionalTargets,
+  xp: profile.xp || 0,
+  level: profile.level || 1,
+  unlockedBadges: profile.unlockedBadges || [],
 });
 
 export const ProfilePage = ({ onNavigate }: ProfilePageProps) => {
@@ -113,6 +120,9 @@ export const ProfilePage = ({ onNavigate }: ProfilePageProps) => {
   const calTarget = watch("nutritionalTargets.calories") || 2100;
   const proteinTarget = watch("nutritionalTargets.protein") || 25;
   const carbsTarget = watch("nutritionalTargets.carbs") || 45;
+  const xp = watch("xp") || 0;
+  const level = watch("level") || 1;
+  const unlockedBadges = watch("unlockedBadges") || [];
   
   // Calculate macronutrient values in grams for visual targets
   const proteinGrams = Math.round((calTarget * (proteinTarget / 100)) / 4);
@@ -421,6 +431,8 @@ export const ProfilePage = ({ onNavigate }: ProfilePageProps) => {
 
           {/* Right Column: Daily Targets & Apple Health & Logout */}
           <div className="space-y-8">
+            {/* Badges & Achievements Showcase */}
+            <BadgesShowcase xp={xp} level={level} unlockedBadges={unlockedBadges} />
             
             {/* Daily Targets Card */}
             <section className="bg-white rounded-[24px] border border-border p-6 shadow-sm space-y-5">
