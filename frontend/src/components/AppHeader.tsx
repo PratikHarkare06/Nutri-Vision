@@ -1,4 +1,4 @@
-import { HistoryIcon, LogoIcon, ProfileIcon } from "./icons";
+import { HistoryIcon, ProfileIcon } from "./icons";
 
 type AppHeaderProps = {
   currentPath: string;
@@ -9,14 +9,16 @@ export const AppHeader = ({ onNavigate }: AppHeaderProps) => (
   <header className="h-[72px] border-b border-panelBorder bg-background px-8 flex-shrink-0 z-10 sticky top-0">
     <div className="mx-auto flex h-full max-w-7xl items-center justify-between">
       <div 
-        className="flex items-center gap-2 cursor-pointer" 
+        className="flex items-center gap-3 cursor-pointer" 
         onClick={() => onNavigate("/")}
       >
-        <div className="bg-primary p-1.5 rounded-md flex items-center justify-center">
-          <LogoIcon className="h-5 w-5 text-white" />
-        </div>
+        <img
+          src="/nutrixa-logo.png"
+          alt="Nutrixa Logo"
+          className="h-10 w-10 object-contain rounded-xl"
+        />
         <span className="text-xl font-bold tracking-tight text-white">
-          NutriVision
+          Nutrixa
         </span>
       </div>
       

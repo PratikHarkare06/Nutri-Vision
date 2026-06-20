@@ -26,7 +26,7 @@ export const GroceryListModal = ({ isOpen, onClose, list }: GroceryListModalProp
   };
 
   const handleCopy = () => {
-    let text = "🛒 My NutriVision Grocery List\n\n";
+    let text = "🛒 My Nutrixa Grocery List\n\n";
     categories.forEach(cat => {
       text += `**${cat.category}**\n`;
       cat.items.forEach(item => {

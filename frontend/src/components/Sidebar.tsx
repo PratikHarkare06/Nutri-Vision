@@ -84,7 +84,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentPath, onNavigate }) => 
   };
 
   const navItems = getNavItems(currentPath);
-  const brandName = currentPath === "/" ? "Lumina Health" : "NutriTrack";
+  const brandName = "Nutrixa";
 
   const handleViewPDF = () => {
     const printWindow = window.open("", "_blank");
@@ -96,7 +96,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentPath, onNavigate }) => 
     printWindow.document.write(`
       <html>
         <head>
-          <title>Weekly Health Report - NutriTrack</title>
+          <title>Weekly Health Report - Nutrixa</title>
           <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;700&display=swap" rel="stylesheet">
           <style>
             body {
@@ -185,7 +185,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentPath, onNavigate }) => 
               <h1 class="title">Weekly Metabolic Insights</h1>
               <div class="date">Report generated on ${new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</div>
             </div>
-            <div class="logo">NutriTrack</div>
+            <div class="logo">Nutrixa</div>
           </div>
 
           <div class="section">
@@ -227,7 +227,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentPath, onNavigate }) => 
           </div>
 
           <div class="footer">
-            NutriTrack Analytics • Private & Confidential Personal Health Record
+            Nutrixa • Private & Confidential Personal Health Record
           </div>
 
           <script>
@@ -363,11 +363,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentPath, onNavigate }) => 
     <aside className="w-[240px] min-h-screen bg-white border-r border-border flex flex-col shrink-0 shadow-sm">
       {/* Logo */}
       <div className="px-6 py-6 flex items-center gap-3">
-        <div className="w-9 h-9 rounded-full bg-[#7A9E7E] flex items-center justify-center shrink-0">
-          <svg viewBox="0 0 24 24" fill="white" className="w-5 h-5">
-            <path d="M17 8C8 10 5.9 16.17 3.82 21.34L5.71 22l1-2.3A4.49 4.49 0 008 20C19 20 22 3 22 3c-1 2-8 5.25-8 5.25" />
-          </svg>
-        </div>
+        <img
+          src="/nutrixa-logo.png"
+          alt="Nutrixa Logo"
+          className="w-10 h-10 object-contain rounded-xl"
+        />
         <span className="text-xl font-bold text-textHeading tracking-tight">{brandName}</span>
       </div>
 

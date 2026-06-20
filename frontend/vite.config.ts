@@ -9,8 +9,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png'],
       manifest: {
-        name: 'NutriVision AI',
-        short_name: 'NutriVision',
+        name: 'Nutrixa',
+        short_name: 'Nutrixa',
         description: 'Your intelligent health and nutrition platform',
         theme_color: '#0f172a', // panel background color
         background_color: '#020617', // main background color

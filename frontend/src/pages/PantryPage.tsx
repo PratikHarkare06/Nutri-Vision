@@ -522,47 +522,119 @@ export const PantryPage = ({ onNavigate }: PantryPageProps) => {
             </div>
           </div>
 
-          {/* Inventory Cards Stack */}
-          <div className="space-y-3">
-            {(pantryAnalysis ? pantryAnalysis.identifiedIngredients.map((ing, i) => ({
+          {/* Virtual Fridge & Pantry Drawers */}
+          {(() => {
+            const currentList = (pantryAnalysis ? pantryAnalysis.identifiedIngredients.map((ing, i) => ({
               name: ing,
-              details: "Added today",
-              tag: "Fresh",
+              details: i % 3 === 0 ? "Expiring in 2 days" : "Added today",
+              tag: i % 3 === 0 ? "Low" : "Fresh",
               category: getIngredientCategory(ing),
-              color: "#EBF2EB",
-              text: "#7A9E7E",
-              icon: "🥬"
-            })) : mockPantryItems)
-            .filter((item) => filter === "All" || item.category === filter)
-            .map((item) => (
-              <div 
-                key={item.name} 
-                className={`bg-white border rounded-2xl p-4 flex justify-between items-center transition-all duration-300
-                  ${item.tag === "Low" 
-                    ? "border-[#E8815A]/30 hover:border-[#E8815A]/60 shadow-[0_2px_12px_-3px_rgba(232,129,90,0.08)] hover:shadow-[0_4px_16px_-2px_rgba(232,129,90,0.15)]" 
-                    : "border-[#7A9E7E]/30 hover:border-[#7A9E7E]/60 shadow-[0_2px_12px_-3px_rgba(122,158,126,0.08)] hover:shadow-[0_4px_16px_-2px_rgba(122,158,126,0.15)]"
-                  }`}
-              >
-                <div className="flex gap-3 items-center">
-                  <div className="w-10 h-10 rounded-xl bg-[#F5F6F1] border border-border flex items-center justify-center text-lg select-none">
-                    {item.icon}
+              icon: getIngredientIcon(ing)
+            })) : mockPantryItems).filter((item) => filter === "All" || item.category === filter);
+
+            const crisperItems = currentList.filter(item => getPantryItemPlacement(item.name, item.category) === "crisper_drawer");
+            const shelfItems = currentList.filter(item => getPantryItemPlacement(item.name, item.category) === "fridge_shelf");
+            const cabinetItems = currentList.filter(item => getPantryItemPlacement(item.name, item.category) === "dry_cabinet");
+
+            const renderDrawer = (
+              title: string,
+              subtitle: string,
+              items: typeof currentList,
+              bgClass: string,
+              borderColorClass: string,
+              titleColorClass: string
+            ) => {
+              if (items.length === 0) return null;
+              return (
+                <div className={`p-5 rounded-[24px] border ${borderColorClass} ${bgClass} shadow-sm space-y-4`}>
+                  <div className="flex justify-between items-center border-b border-border/45 pb-2">
+                    <div>
+                      <h4 className={`text-xs font-bold uppercase tracking-wider ${titleColorClass}`}>{title}</h4>
+                      <p className="text-[10px] text-textMuted mt-0.5">{subtitle}</p>
+                    </div>
+                    <span className="px-2.5 py-0.5 rounded-full bg-white border border-border/60 text-[10px] font-bold text-textHeading">
+                      {items.length} {items.length === 1 ? "item" : "items"}
+                    </span>
                   </div>
-                  <div>
-                    <h4 className="font-bold text-textHeading text-sm capitalize">{item.name}</h4>
-                    <p className="text-xs text-textMuted mt-0.5">{item.details}</p>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {items.map((item) => (
+                      <div 
+                        key={item.name}
+                        className="bg-white border border-border/80 rounded-xl p-3.5 flex flex-col justify-between h-24 hover:shadow-md transition-shadow relative group"
+                      >
+                        <div className="flex gap-2.5 items-center">
+                          <div className="w-9 h-9 rounded-lg bg-[#F5F6F1] border border-border/50 flex items-center justify-center text-base select-none">
+                            {item.icon}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <h5 className="font-bold text-xs text-textHeading capitalize truncate" title={item.name}>
+                              {item.name}
+                            </h5>
+                            <span className={`inline-block text-[9px] font-bold uppercase mt-0.5 ${
+                              item.tag === "Low" ? "text-[#E8815A]" : "text-[#7A9E7E]"
+                            }`}>
+                              {item.tag === "Low" ? "⚠️ Low Stock" : "✓ Fresh"}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Decay progress bar */}
+                        <div className="space-y-1 mt-1.5">
+                          <div className="flex justify-between text-[8px] text-textMuted font-bold uppercase tracking-wider">
+                            <span>Freshness Gauge</span>
+                            <span>{item.tag === "Low" ? "20%" : "85%"}</span>
+                          </div>
+                          <div className="w-full bg-[#F5F5F0] h-1.5 rounded-full overflow-hidden">
+                            <div 
+                              className={`h-full rounded-full transition-all duration-500 ${
+                                item.tag === "Low" ? "bg-[#E8815A]" : "bg-[#7A9E7E]"
+                              }`}
+                              style={{ width: item.tag === "Low" ? "20%" : "85%" }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
-                <span className={`px-2.5 py-0.5 rounded-full border text-[10px] font-bold uppercase transition-colors
-                  ${item.tag === "Low"
-                    ? "bg-[#FEF0EB] text-[#E8815A] border-[#FEF0EB]"
-                    : "bg-[#EBF2EB] text-[#7A9E7E] border-[#EBF2EB]"
-                  }`}
-                >
-                  {item.tag}
-                </span>
+              );
+            };
+
+            return (
+              <div className="space-y-6">
+                {/* 1. Produce Crisper Drawer */}
+                {renderDrawer(
+                  "🥦 Produce Crisper Drawer",
+                  "Fresh fruits, greens & vegetables",
+                  crisperItems,
+                  "bg-[#F4F7F2]/60 border-[#7A9E7E]/20",
+                  "border-[#7A9E7E]/10",
+                  "text-[#7A9E7E]"
+                )}
+
+                {/* 2. Refrigerator Shelf */}
+                {renderDrawer(
+                  "🥛 Refrigerator Door Shelf",
+                  "Meats, dairy, liquids & proteins",
+                  shelfItems,
+                  "bg-[#F3F7FA]/60 border-[#7A9EBE]/20",
+                  "border-[#7A9EBE]/10",
+                  "text-[#7A9EBE]"
+                )}
+
+                {/* 3. Dry Pantry Cabinet */}
+                {renderDrawer(
+                  "🌾 Dry Pantry Cabinet",
+                  "Grains, powders, seeds & dry goods",
+                  cabinetItems,
+                  "bg-[#FAF7F0]/60 border-[#D4A847]/20",
+                  "border-[#D4A847]/10",
+                  "text-[#D4A847]"
+                )}
               </div>
-            ))}
-          </div>
+            );
+          })()}
 
           {/* View All Ingredients Button */}
           <button className="w-full py-2.5 bg-white border border-[#E2E4DC] hover:border-[#7A9E7E] text-textMuted hover:text-[#7A9E7E] rounded-xl text-xs font-bold transition-all shadow-sm">
@@ -1138,4 +1210,38 @@ const getIngredientCategory = (name: string): "Fresh" | "Dry" => {
     return "Dry";
   }
   return "Fresh";
+};
+
+// Helper function to resolve ingredient icons dynamically
+const getIngredientIcon = (name: string): string => {
+  const lower = name.toLowerCase();
+  if (lower.includes("chicken") || lower.includes("meat") || lower.includes("beef") || lower.includes("pork") || lower.includes("turkey") || lower.includes("steak") || lower.includes("lamb")) return "🍗";
+  if (lower.includes("yogurt") || lower.includes("milk") || lower.includes("cheese") || lower.includes("dairy") || lower.includes("butter")) return "🥛";
+  if (lower.includes("spinach") || lower.includes("lettuce") || lower.includes("salad") || lower.includes("cabbage") || lower.includes("kale")) return "🥬";
+  if (lower.includes("avocado")) return "🥑";
+  if (lower.includes("egg")) return "🥚";
+  if (lower.includes("apple") || lower.includes("fruit") || lower.includes("banana") || lower.includes("strawberry") || lower.includes("berry") || lower.includes("peach")) return "🍎";
+  if (lower.includes("quinoa") || lower.includes("rice") || lower.includes("oat") || lower.includes("grain") || lower.includes("flour") || lower.includes("pasta") || lower.includes("noodle")) return "🌾";
+  if (lower.includes("fish") || lower.includes("salmon") || lower.includes("tuna") || lower.includes("seafood") || lower.includes("shrimp")) return "🐟";
+  if (lower.includes("oil") || lower.includes("sauce") || lower.includes("vinegar") || lower.includes("syrup")) return "🫙";
+  if (lower.includes("onion") || lower.includes("garlic")) return "🧄";
+  if (lower.includes("bread") || lower.includes("toast") || lower.includes("bun") || lower.includes("wrap")) return "🍞";
+  if (lower.includes("tomato") || lower.includes("cucumber") || lower.includes("carrot") || lower.includes("broccoli") || lower.includes("pepper") || lower.includes("vegetable")) return "🥦";
+  return "🍲"; // default
+};
+
+// Helper function to categorize pantry items into physical drawers/compartments
+const getPantryItemPlacement = (name: string, category: string): "crisper_drawer" | "fridge_shelf" | "dry_cabinet" => {
+  const lowerName = name.toLowerCase();
+  
+  if (category === "Dry" || lowerName === "quinoa" || lowerName === "rice" || lowerName === "spices" || lowerName === "oats" || lowerName === "flour" || lowerName === "chia") {
+    return "dry_cabinet";
+  }
+  
+  const crisperKeywords = ["spinach", "avocado", "lettuce", "tomato", "cucumber", "broccoli", "carrot", "pepper", "lemon", "lime", "herb", "onion", "garlic", "apple", "berry", "banana", "fruit", "cabbage", "kale"];
+  if (crisperKeywords.some(keyword => lowerName.includes(keyword))) {
+    return "crisper_drawer";
+  }
+  
+  return "fridge_shelf";
 };

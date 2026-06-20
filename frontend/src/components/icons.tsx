@@ -10,16 +10,80 @@ const createIcon = (paths: ReactNode, viewBox = "0 0 24 24") => (
   </svg>
 );
 
-export const LogoIcon = createIcon(
-  <>
-    <rect x="2" y="2" width="20" height="20" rx="6" fill="#FF7A12" />
-    <path
-      d="M12 6.9C9.96 6.9 8.3 8.5 8.3 10.48C8.3 11.95 9.22 13.22 10.56 13.77V15.04H13.42V13.77C14.76 13.22 15.68 11.95 15.68 10.48C15.68 8.5 14.02 6.9 12 6.9ZM12 17.3C11.19 17.3 10.53 16.66 10.53 15.87H13.47C13.47 16.66 12.81 17.3 12 17.3Z"
-      fill="#F8FAFF"
+// Nutrixa brand logo — stylised N with two crossing leaves (green→teal gradient) + human infinity figure
+export const LogoIcon = ({ className, ...props }: import("react").SVGProps<SVGSVGElement>) => (
+  <svg
+    viewBox="0 0 100 100"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    className={className}
+    {...props}
+  >
+    <defs>
+      {/* Left leaf: green */}
+      <linearGradient id="nxa-leaf-l" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#3ecf6e" />
+        <stop offset="100%" stopColor="#27ae60" />
+      </linearGradient>
+      {/* Right leaf: blue-teal */}
+      <linearGradient id="nxa-leaf-r" x1="100%" y1="0%" x2="0%" y2="100%">
+        <stop offset="0%" stopColor="#5db8e8" />
+        <stop offset="100%" stopColor="#3a85c7" />
+      </linearGradient>
+      {/* N stroke: green→teal */}
+      <linearGradient id="nxa-n" x1="0%" y1="0%" x2="100%" y2="0%">
+        <stop offset="0%" stopColor="#3ecf6e" />
+        <stop offset="50%" stopColor="#2bbf9e" />
+        <stop offset="100%" stopColor="#3a8fd4" />
+      </linearGradient>
+    </defs>
+
+    {/* ── Left leaf (bottom-left to top-right diagonal) ── */}
+    <ellipse
+      cx="36" cy="64"
+      rx="22" ry="11"
+      transform="rotate(-45 36 64)"
+      fill="url(#nxa-leaf-l)"
+      opacity="0.92"
     />
-    <path d="M12 8.7V10.86" stroke="#FF7A12" strokeWidth="1.6" strokeLinecap="round" />
-    <circle cx="12" cy="12.76" r="0.92" fill="#FF7A12" />
-  </>,
+    {/* Left leaf vein */}
+    <line x1="20" y1="80" x2="52" y2="48" stroke="white" strokeWidth="1.6" strokeLinecap="round" opacity="0.55" />
+
+    {/* ── Right leaf (top-left to bottom-right diagonal) ── */}
+    <ellipse
+      cx="64" cy="36"
+      rx="22" ry="11"
+      transform="rotate(-45 64 36)"
+      fill="url(#nxa-leaf-r)"
+      opacity="0.92"
+    />
+    {/* Right leaf vein */}
+    <line x1="48" y1="20" x2="80" y2="52" stroke="white" strokeWidth="1.6" strokeLinecap="round" opacity="0.55" />
+
+    {/* ── N stroke (thick, gradient, rounded) ── */}
+    <polyline
+      points="22,78 22,22 50,60 78,22 78,78"
+      stroke="url(#nxa-n)"
+      strokeWidth="10"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      fill="none"
+    />
+
+    {/* ── Human infinity figure (white, centred on crossover ~50,50) ── */}
+    {/* Left person head */}
+    <circle cx="38" cy="46" r="4.2" fill="white" />
+    {/* Right person head */}
+    <circle cx="62" cy="54" r="4.2" fill="white" />
+    {/* Infinity body loop */}
+    <path
+      d="M38 50 C38 57 46 57 50 50 C54 43 62 43 62 50 C62 57 54 57 50 50 C46 43 38 43 38 50Z"
+      stroke="white"
+      strokeWidth="2.8"
+      fill="none"
+      strokeLinecap="round"
+    />
+  </svg>
 );
 
 export const ClockIcon = createIcon(

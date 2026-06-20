@@ -420,7 +420,7 @@ export const ProfilePage = ({ onNavigate }: ProfilePageProps) => {
                     </div>
                     <div>
                       <h4 className="font-bold text-textHeading text-sm">Subscription</h4>
-                      <p className="text-xs text-textMuted mt-0.5">NutriTrack Pro • Active until Dec 2026</p>
+                      <p className="text-xs text-textMuted mt-0.5">Nutrixa Pro • Active until Dec 2026</p>
                     </div>
                   </div>
                   <span className="text-textMuted text-lg font-bold">&gt;</span>

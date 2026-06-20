@@ -280,7 +280,7 @@ export const ResultsPage = ({ onBack, onNavigate }: ResultsPageProps) => {
           <section className="bg-[#EBF2EB] border border-[#D4E6D5] rounded-[24px] p-6 shadow-sm space-y-4">
             <div className="flex items-center gap-2">
               <span className="text-lg">✨</span>
-              <h3 className="font-bold text-[#2C3E2B] text-base">NutriTrack Insight</h3>
+              <h3 className="font-bold text-[#2C3E2B] text-base">Nutrixa Insight</h3>
             </div>
             <p className="text-sm text-textBody leading-relaxed">
               This meal is high in Omega-3 fatty acids and lean protein. It covers 65% of your daily Vitamin D requirement.

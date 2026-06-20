@@ -61,7 +61,7 @@ export const PWAInstallBanner = () => {
           📲
         </div>
         <div className="text-center sm:text-left">
-          <h4 className="font-bold text-textHeading text-xs">Install NutriTrack App</h4>
+          <h4 className="font-bold text-textHeading text-xs">Install Nutrixa App</h4>
           <p className="text-[10px] text-textMuted mt-0.5">
             Add to your home screen for rapid meal logging & offline logs.
           </p>

@@ -8,7 +8,7 @@ export const ChatAssistant = () => {
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       role: "model",
-      text: "Hi there! I'm NutriBot, your AI Nutritionist. Ask me anything about your pantry, today's logged meals, or workouts!",
+      text: "Hi there! I'm NutrixaBot, your AI Nutritionist. Ask me anything about your pantry, today's logged meals, or workouts!",
     },
   ]);
   const [inputText, setInputText] = useState("");
@@ -136,7 +136,7 @@ export const ChatAssistant = () => {
       console.error("Chat error:", err);
       setMessages((prev) => [
         ...prev,
-        { role: "model", text: "Failed to connect to NutriBot. Please check your connection." },
+        { role: "model", text: "Failed to connect to NutrixaBot. Please check your connection." },
       ]);
     } finally {
       setIsSending(false);
@@ -190,7 +190,7 @@ export const ChatAssistant = () => {
         <button
           onClick={() => setIsOpen(true)}
           className="fixed bottom-28 right-8 z-40 w-14 h-14 bg-[#7A9E7E] hover:bg-[#5C7A60] text-white rounded-full flex items-center justify-center shadow-lg hover:scale-105 active:scale-95 transition-all duration-300 group"
-          title="Chat with NutriBot"
+          title="Chat with NutrixaBot"
         >
           {/* Chat Speech Icon */}
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-6 h-6 group-hover:rotate-12 transition-transform">
@@ -213,7 +213,7 @@ export const ChatAssistant = () => {
                 🌿
               </div>
               <div>
-                <h3 className="font-bold text-sm leading-tight text-white">NutriBot</h3>
+                <h3 className="font-bold text-sm leading-tight text-white">NutrixaBot</h3>
                 <p className="text-[10px] text-white/80 font-medium">Your AI Health Companion</p>
               </div>
             </div>
@@ -257,7 +257,7 @@ export const ChatAssistant = () => {
                 }`}
               >
                 {msg.role === "model" && index > 0 && (
-                  <span className="text-[9px] font-bold text-textMuted uppercase tracking-wider mb-1 ml-1">NutriBot</span>
+                  <span className="text-[9px] font-bold text-textMuted uppercase tracking-wider mb-1 ml-1">NutrixaBot</span>
                 )}
                 <div
                   className={`px-4 py-2.5 rounded-[18px] text-xs font-semibold leading-relaxed shadow-[0_1px_3px_rgba(0,0,0,0.03)] border ${
@@ -311,7 +311,7 @@ export const ChatAssistant = () => {
                 type="text"
                 value={inputText}
                 onChange={(e) => setInputText(e.target.value)}
-                placeholder="Ask NutriBot a question..."
+                placeholder="Ask NutrixaBot a question..."
                 disabled={isSending}
                 className="w-full pl-4 pr-10 py-2.5 bg-[#F9FAF8] border border-border focus:border-[#7A9E7E] focus:ring-1 focus:ring-[#7A9E7E] rounded-xl text-xs outline-none font-medium transition-all"
               />
