@@ -1,8 +1,9 @@
 import axios, { AxiosError } from "axios";
 import type { ApiErrorResponse, HistorySuccessResponse } from "../types";
+import { API_BASE_URL } from "./apiConfig";
 
 const historyApi = axios.create({
-  baseURL: "http://localhost:5001/api",
+  baseURL: API_BASE_URL,
   timeout: 10000,
 });
 

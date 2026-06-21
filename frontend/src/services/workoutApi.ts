@@ -1,8 +1,9 @@
 import axios from "axios";
 import type { DailyWorkoutPlan } from "../types";
+import { API_BASE_URL } from "./apiConfig";
 
 const workoutApi = axios.create({
-  baseURL: "http://localhost:5001/api",
+  baseURL: API_BASE_URL,
   headers: {
     "Content-Type": "application/json",
   },

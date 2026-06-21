@@ -104,7 +104,7 @@ export const useUploadStore = create<UploadState>((set, get) => ({
       isUploading: true,
     });
 
-    const eventSource = new EventSource(`http://localhost:5001/api/upload/progress/${uploadId}`);
+    const eventSource = new EventSource(`${import.meta.env.VITE_API_URL || "http://localhost:5001/api"}/upload/progress/${uploadId}`);
     eventSource.onmessage = (event) => {
       try {
         if (event.data === "connected") return;

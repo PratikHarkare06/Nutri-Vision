@@ -12,8 +12,8 @@ export default defineConfig({
         name: 'Nutrixa',
         short_name: 'Nutrixa',
         description: 'Your intelligent health and nutrition platform',
-        theme_color: '#0f172a', // panel background color
-        background_color: '#020617', // main background color
+        theme_color: '#0f172a',
+        background_color: '#020617',
         display: 'standalone',
         icons: [
           {
@@ -34,4 +34,21 @@ export default defineConfig({
   server: {
     port: 5173,
   },
+  build: {
+    // Raise warning threshold slightly while chunks are being split
+    chunkSizeWarningLimit: 600,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // React core — loaded first, cached aggressively
+          'vendor-react': ['react', 'react-dom'],
+          // Charting library — heavy, lazy-load separately
+          'vendor-charts': ['recharts'],
+          // State management
+          'vendor-state': ['zustand', 'axios'],
+        },
+      },
+    },
+  },
 });
+

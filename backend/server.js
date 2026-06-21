@@ -6,7 +6,7 @@ const startServer = async () => {
   try {
     await connectToDatabase();
     app.listen(env.port, () => {
-      console.log(`NutriVision backend listening on port ${env.port}`);
+      console.log(`Nutrixa backend listening on port ${env.port}`);
     });
   } catch (error) {
     console.error("Failed to start backend", error);
