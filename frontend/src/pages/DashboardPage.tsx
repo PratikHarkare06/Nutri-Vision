@@ -202,12 +202,12 @@ export const DashboardPage = ({ onUploadSuccess, onNavigate }: DashboardPageProp
   return (
     <div className="flex-1 min-h-screen bg-background relative overflow-y-auto pb-24 animate-fade-in">
       {/* Top Header */}
-      <header className="px-8 pt-8 pb-4 flex justify-between items-center max-w-6xl mx-auto w-full">
+      <header className="px-4 sm:px-8 pt-8 pb-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between max-w-6xl mx-auto w-full">
         <div>
           <h1 className="text-3xl font-bold text-textHeading tracking-tight">Welcome back, Alex</h1>
           <p className="text-textMuted text-sm mt-1">You've reached 85% of your protein goal today.</p>
         </div>
-        <div className="flex items-center gap-3 relative">
+        <div className="flex items-center gap-3 relative self-start sm:self-auto">
           {/* Header Action Buttons */}
           <button 
             onClick={() => onNavigate?.("/history")}
