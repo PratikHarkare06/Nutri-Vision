@@ -255,7 +255,7 @@ const analyzeImageWithNvidia = async (imagePath, mimeType, userMealType = "") =>
   try {
     const base64Image = fs.readFileSync(imagePath).toString("base64");
     const dataUrl = `data:${mimeType};base64,${base64Image}`;
-    const model = process.env.NVIDIA_MODEL || "google/gemma-4-31b-it";
+    const model = process.env.NVIDIA_VISION_MODEL || "meta/llama-3.2-11b-vision-instruct";
 
     const res = await fetch("https://integrate.api.nvidia.com/v1/chat/completions", {
       method: "POST",

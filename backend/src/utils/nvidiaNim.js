@@ -6,7 +6,10 @@ const callNvidiaNim = async (prompt, imagePath = null, mimeType = null) => {
     throw new Error("NIM_API_KEY or NVIDIA_API is not configured in environment variables.");
   }
 
-  const model = process.env.NVIDIA_MODEL || "google/gemma-4-31b-it";
+  const isVision = !!(imagePath && mimeType);
+  const model = isVision
+    ? (process.env.NVIDIA_VISION_MODEL || "meta/llama-3.2-11b-vision-instruct")
+    : (process.env.NVIDIA_MODEL || "google/gemma-4-31b-it");
   const messages = [];
 
   if (imagePath && mimeType) {
