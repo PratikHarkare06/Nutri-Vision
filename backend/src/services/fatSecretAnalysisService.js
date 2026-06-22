@@ -255,7 +255,7 @@ const analyzeImageWithNvidia = async (imagePath, mimeType, userMealType = "") =>
   try {
     const base64Image = fs.readFileSync(imagePath).toString("base64");
     const dataUrl = `data:${mimeType};base64,${base64Image}`;
-    const model = process.env.NVIDIA_MODEL || "meta/llama-3.2-90b-vision-instruct";
+    const model = process.env.NVIDIA_MODEL || "google/diffusiongemma-26b-a4b-it";
 
     const res = await fetch("https://integrate.api.nvidia.com/v1/chat/completions", {
       method: "POST",
@@ -272,8 +272,10 @@ const analyzeImageWithNvidia = async (imagePath, mimeType, userMealType = "") =>
             { type: "image_url", image_url: { url: dataUrl } },
           ],
         }],
-        temperature: 0.1,
-        max_tokens: 512,
+        temperature: 1.00,
+        top_p: 0.95,
+        max_tokens: 4096,
+        chat_template_kwargs: { enable_thinking: true },
       }),
     });
 
@@ -351,14 +353,15 @@ const analyzeImageWithGemini = async (imagePath, mimeType, userMealType = "") =>
 // ─── Combined vision analysis: Gemini → Groq → fail ──────────────────────────
 
 const analyzeImageWithVision = async (imagePath, mimeType, userMealType = "") => {
-  // 1. Try Gemini (primary)
-  const geminiResult = await analyzeImageWithGemini(imagePath, mimeType, userMealType);
-  if (geminiResult) return geminiResult;
-
-  // 2. Try Nvidia API (backup)
-  console.warn("[Vision] Gemini exhausted — trying Nvidia API Vision");
+  // 1. Try Nvidia API (primary) - google/diffusiongemma-26b-a4b-it
+  console.log("[Vision] Trying Nvidia API Vision (google/diffusiongemma-26b-a4b-it) as primary model");
   const nvidiaResult = await analyzeImageWithNvidia(imagePath, mimeType, userMealType);
   if (nvidiaResult) return nvidiaResult;
+
+  // 2. Try Gemini (backup)
+  console.warn("[Vision] Nvidia API failed or exhausted — trying Gemini Vision as backup");
+  const geminiResult = await analyzeImageWithGemini(imagePath, mimeType, userMealType);
+  if (geminiResult) return geminiResult;
 
   // 3. Both failed
   console.error("[Vision] All vision models exhausted");
