@@ -169,11 +169,28 @@ const generateDietPlan = async (req, res, next) => {
 
 const { ProgressLog } = require("../models/ProgressLog");
 const { env } = require("../config/env");
+const { getImageUrl } = require("../utils/urlHelper");
 
 const getProgressLogs = async (req, res, next) => {
   try {
     const logs = await ProgressLog.find({}).sort({ created_at: -1 }).lean();
-    res.status(200).json({ success: true, data: logs });
+    const mappedLogs = logs.map((log) => {
+      let imageUrl = log.image_url;
+      if (imageUrl) {
+        const uploadsIndex = imageUrl.indexOf("/uploads/");
+        if (uploadsIndex !== -1) {
+          const filename = imageUrl.slice(uploadsIndex + 9);
+          const protocol = req.headers["x-forwarded-proto"] || req.protocol;
+          const host = req.get("host");
+          imageUrl = `${protocol}://${host}/uploads/${filename}`;
+        }
+      }
+      return {
+        ...log,
+        image_url: imageUrl,
+      };
+    });
+    res.status(200).json({ success: true, data: mappedLogs });
   } catch (error) {
     next(createAppError(500, "FETCH_FAILED", "Failed to fetch progress logs."));
   }
@@ -191,7 +208,7 @@ const addProgressLog = async (req, res, next) => {
     let imageUrl = null;
     
     if (req.file) {
-      imageUrl = `${env.appUrl}/uploads/${req.file.filename}`;
+      imageUrl = getImageUrl(req, req.file.filename);
     }
 
     const newLog = await ProgressLog.create({

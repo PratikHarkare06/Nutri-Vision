@@ -1,11 +1,6 @@
-const { GoogleGenAI } = require("@google/genai");
+const { callNvidiaNim, extractJsonFromText } = require("../utils/nvidiaNim");
 
 const generateWorkoutPlanWithGemini = async (profile) => {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) throw new Error("GEMINI_API_KEY is not configured.");
-
-  const ai = new GoogleGenAI({ apiKey });
-  
   const targetGoal = profile.primaryGoal || "General Fitness";
   const activityLevel = profile.activityLevel || "Moderately Active";
 
@@ -53,14 +48,10 @@ Ensure the plan perfectly aligns with their goal (${targetGoal}) and current act
 Do not return any markdown formatting outside of the JSON.`;
 
   try {
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: [prompt],
-      config: { responseMimeType: "application/json" },
-    });
-    return JSON.parse(response.text);
+    const textOutput = await callNvidiaNim(prompt);
+    return extractJsonFromText(textOutput);
   } catch (error) {
-    console.error("Gemini Workout Plan Error:", error);
+    console.error("Nvidia NIM Workout Plan Error:", error);
     throw new Error("Failed to generate workout plan");
   }
 };

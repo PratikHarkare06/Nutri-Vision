@@ -29,7 +29,7 @@ const getHistory = async (req, res, next) => {
 
     res.status(200).json({
       success: true,
-      data: historyEntries.map(mapFoodEntryToAnalysis),
+      data: historyEntries.map((entry) => mapFoodEntryToAnalysis(entry, req)),
       pagination: {
         limit,
         page,

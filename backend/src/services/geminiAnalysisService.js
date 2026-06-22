@@ -1,18 +1,9 @@
 const { GoogleGenAI } = require("@google/genai");
 const fs = require("fs");
 const crypto = require("crypto");
+const { callNvidiaNim, extractJsonFromText } = require("../utils/nvidiaNim");
 
 const analyzeFoodImageWithGemini = async (imagePath, mimeType, imageUrl) => {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    throw new Error("GEMINI_API_KEY is not configured in environment variables.");
-  }
-
-  const ai = new GoogleGenAI({ apiKey });
-
-  const imageBuffer = fs.readFileSync(imagePath);
-  const base64Image = imageBuffer.toString("base64");
-
   const prompt = `You are a professional nutritionist and image recognition AI. Analyze this food image and estimate the nutritional content.
 Please output ONLY a valid JSON object without any markdown wrapping or additional text.
 The JSON must strictly follow this structure:
@@ -36,24 +27,8 @@ The JSON must strictly follow this structure:
 Ensure the estimated weight is in grams (g) and volume is in cubic centimeters (cm³). Confidence should be a float between 0 and 1.`;
 
   try {
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: [
-        prompt,
-        {
-          inlineData: {
-            data: base64Image,
-            mimeType: mimeType,
-          },
-        },
-      ],
-      config: {
-        responseMimeType: "application/json",
-      },
-    });
-
-    const textOutput = response.text;
-    const parsedData = JSON.parse(textOutput);
+    const textOutput = await callNvidiaNim(prompt, imagePath, mimeType);
+    const parsedData = extractJsonFromText(textOutput);
 
     // Build final analysis object expected by the rest of the application
     return {
@@ -72,17 +47,12 @@ Ensure the estimated weight is in grams (g) and volume is in cubic centimeters (
       createdAt: new Date().toISOString(),
     };
   } catch (error) {
-    console.error("Gemini API Error:", error);
-    throw new Error("Failed to analyze food image with Gemini.");
+    console.error("Nvidia NIM Vision API Error:", error);
+    throw new Error("Failed to analyze food image with Nvidia NIM.");
   }
 };
 
 const getMealSuggestions = async (remainingCalories, remainingProtein) => {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) throw new Error("GEMINI_API_KEY is not configured.");
-
-  const ai = new GoogleGenAI({ apiKey });
-  
   const prompt = `You are an expert Indian nutritionist. The user has ${remainingCalories} kcal and ${remainingProtein}g of protein left for their daily target.
 Suggest 3 specific, realistic Indian meals (or snacks) they can eat right now to hit these targets as closely as possible without going over by more than 10%.
 Return a JSON array of 3 objects, each with:
@@ -92,24 +62,15 @@ Return a JSON array of 3 objects, each with:
 - "protein": Number`;
 
   try {
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: [prompt],
-      config: { responseMimeType: "application/json" },
-    });
-    return JSON.parse(response.text);
+    const textOutput = await callNvidiaNim(prompt);
+    return extractJsonFromText(textOutput);
   } catch (error) {
-    console.error("Gemini Advisor Error:", error);
+    console.error("Nvidia Advisor Error:", error);
     return [];
   }
 };
 
 const generatePersonalizedDietPlan = async (profile, metrics) => {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) throw new Error("GEMINI_API_KEY is not configured.");
-
-  const ai = new GoogleGenAI({ apiKey });
-  
   const restrictions = profile.dietary_restrictions?.length ? profile.dietary_restrictions.join(", ") : "None";
   const allergies = profile.food_allergies?.length ? profile.food_allergies.join(", ") : "None";
   const targetCalories = metrics.maintenanceCalories; // Use maintenance or adjust based on a goal if we had one.
@@ -140,34 +101,22 @@ Return ONLY a valid JSON array of exactly 7 objects (one for each day, Monday to
       "protein": 15,
       "carbs": 60,
       "fat": 10
-    },
-    // ... exactly 4 meals per day: Breakfast, Lunch, Snack, Dinner
+    }
   ]
 }
 
 Ensure the daily macros closely sum up to the Target Daily Calories. Make the meals realistic, emphasizing Indian cuisine where appropriate while strictly adhering to the user's Diet Mode and allergies. Do not return anything outside the JSON array.`;
 
   try {
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: [prompt],
-      config: { responseMimeType: "application/json" },
-    });
-    return JSON.parse(response.text);
+    const textOutput = await callNvidiaNim(prompt);
+    return extractJsonFromText(textOutput);
   } catch (error) {
-    console.error("Gemini Diet Plan Error:", error);
+    console.error("Nvidia Diet Plan Error:", error);
     throw new Error("Failed to generate diet plan");
   }
 };
 
 const analyzePantryWithGemini = async (imagePath, mimeType, profile) => {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) throw new Error("GEMINI_API_KEY is not configured.");
-
-  const ai = new GoogleGenAI({ apiKey });
-  const imageBuffer = fs.readFileSync(imagePath);
-  const base64Image = imageBuffer.toString("base64");
-
   const restrictions = profile?.dietary_restrictions?.length ? profile.dietary_restrictions.join(", ") : "None";
   const allergies = profile?.food_allergies?.length ? profile.food_allergies.join(", ") : "None";
   const dietMode = profile?.diet_mode || "Balanced";
@@ -202,32 +151,15 @@ Return ONLY a valid JSON object matching this exact schema:
 Do not return any markdown formatting outside of the JSON.`;
 
   try {
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: [
-        prompt,
-        {
-          inlineData: {
-            data: base64Image,
-            mimeType: mimeType,
-          },
-        },
-      ],
-      config: { responseMimeType: "application/json" },
-    });
-    return JSON.parse(response.text);
+    const textOutput = await callNvidiaNim(prompt, imagePath, mimeType);
+    return extractJsonFromText(textOutput);
   } catch (error) {
-    console.error("Gemini Pantry Error:", error);
+    console.error("Nvidia Pantry Error:", error);
     throw new Error("Failed to analyze pantry image.");
   }
 };
 
 const generateGroceryList = async (dietPlan) => {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) throw new Error("GEMINI_API_KEY is not configured.");
-
-  const ai = new GoogleGenAI({ apiKey });
-
   const prompt = `You are a highly organized culinary assistant. I am providing a 7-day diet plan in JSON format.
 Your task is to extract all the required raw ingredients to cook these meals and group them into a structured grocery shopping list.
 Deduplicate similar items and combine quantities where logical (e.g., "Onions - 5 large", "Chicken Breast - 1.5kg").
@@ -243,36 +175,21 @@ Return ONLY a valid JSON array of category objects matching this exact schema:
       { "name": "Onions", "amount": "5 large", "checked": false },
       { "name": "Spinach", "amount": "2 bunches", "checked": false }
     ]
-  },
-  {
-    "category": "Meat & Seafood",
-    "items": [
-      { "name": "Chicken Breast", "amount": "1.5 kg", "checked": false }
-    ]
   }
 ]
 Standard categories should include: Produce, Meat & Seafood, Dairy & Eggs, Pantry Staples, Spices, Bakery.
 Do not return any markdown formatting outside of the JSON.`;
 
   try {
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: [prompt],
-      config: { responseMimeType: "application/json" },
-    });
-    return JSON.parse(response.text);
+    const textOutput = await callNvidiaNim(prompt);
+    return extractJsonFromText(textOutput);
   } catch (error) {
-    console.error("Gemini Grocery List Error:", error);
+    console.error("Nvidia Grocery List Error:", error);
     throw new Error("Failed to generate grocery list.");
   }
 };
 
 const generateZeroWasteRecipeWithGemini = async (ingredients, profile) => {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) throw new Error("GEMINI_API_KEY is not configured.");
-
-  const ai = new GoogleGenAI({ apiKey });
-
   const restrictions = profile?.dietary_restrictions?.length ? profile.dietary_restrictions.join(", ") : "None";
   const allergies = profile?.food_allergies?.length ? profile.food_allergies.join(", ") : "None";
   const dietMode = profile?.diet_mode || "Balanced";
@@ -305,24 +222,15 @@ Return ONLY a valid JSON object matching this exact schema:
 Do not return any markdown formatting or any other text outside the JSON.`;
 
   try {
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: [prompt],
-      config: { responseMimeType: "application/json" },
-    });
-    return JSON.parse(response.text);
+    const textOutput = await callNvidiaNim(prompt);
+    return extractJsonFromText(textOutput);
   } catch (error) {
-    console.error("Gemini Zero Waste Recipe Error:", error);
+    console.error("Nvidia Zero Waste Recipe Error:", error);
     throw new Error("Failed to generate zero waste recipe.");
   }
 };
 
 const parseVoiceMealWithGemini = async (transcript, profile) => {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) throw new Error("GEMINI_API_KEY is not configured.");
-
-  const ai = new GoogleGenAI({ apiKey });
-
   const restrictions = profile?.dietary_restrictions?.length ? profile.dietary_restrictions.join(", ") : "None";
   const allergies = profile?.food_allergies?.length ? profile.food_allergies.join(", ") : "None";
   const dietMode = profile?.diet_mode || "Balanced";
@@ -377,15 +285,11 @@ Note: the keys inside the "ingredients_macros" object MUST be the exact lowercas
 Do not return any markdown formatting outside of the JSON.`;
 
   try {
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: [prompt],
-      config: { responseMimeType: "application/json" },
-    });
-    return JSON.parse(response.text);
+    const textOutput = await callNvidiaNim(prompt);
+    return extractJsonFromText(textOutput);
   } catch (error) {
-    console.error("Gemini Voice Meal Parsing Error:", error);
-    throw new Error("Failed to parse voice log with Gemini.");
+    console.error("Nvidia Voice Meal Parsing Error:", error);
+    throw new Error("Failed to parse voice log with Nvidia.");
   }
 };
 
@@ -473,16 +377,6 @@ When answering the user, use this context to customize your replies. For example
 };
 
 const analyzeReceiptWithGemini = async (imagePath, mimeType) => {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    throw new Error("GEMINI_API_KEY is not configured in environment variables.");
-  }
-
-  const ai = new GoogleGenAI({ apiKey });
-
-  const imageBuffer = fs.readFileSync(imagePath);
-  const base64Image = imageBuffer.toString("base64");
-
   const prompt = `You are a professional scanner AI. Analyze this grocery shopping receipt image.
 Identify all the food ingredients and grocery items purchased.
 For each item, return its clean, simple name in English (e.g. "spinach", "milk", "chicken breast", "eggs", "greek yogurt").
@@ -492,27 +386,11 @@ Please output ONLY a valid JSON array of strings:
 Do not wrap it in any markdown blocks or return any additional text.`;
 
   try {
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: [
-        prompt,
-        {
-          inlineData: {
-            data: base64Image,
-            mimeType: mimeType,
-          },
-        },
-      ],
-      config: {
-        responseMimeType: "application/json",
-      },
-    });
-
-    const parsed = JSON.parse(response.text);
-    return Array.isArray(parsed) ? parsed : [];
+    const textOutput = await callNvidiaNim(prompt, imagePath, mimeType);
+    return extractJsonFromText(textOutput);
   } catch (error) {
-    console.error("Gemini Receipt Analysis Error:", error);
-    throw new Error("Failed to analyze receipt image with Gemini.");
+    console.error("Nvidia Receipt Analysis Error:", error);
+    throw new Error("Failed to analyze receipt image with Nvidia.");
   }
 };
 

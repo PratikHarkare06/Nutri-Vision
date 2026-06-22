@@ -44,7 +44,7 @@ const parseVoiceLog = async (req, res, next) => {
 
     res.status(200).json({
       success: true,
-      data: mapFoodEntryToAnalysis(savedEntry),
+      data: mapFoodEntryToAnalysis(savedEntry, req),
     });
   } catch (error) {
     console.error("Voice Log Controller Error:", error);

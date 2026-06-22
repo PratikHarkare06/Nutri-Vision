@@ -232,54 +232,61 @@ export const DashboardPage = ({ onUploadSuccess, onNavigate }: DashboardPageProp
           >
             AR
           </div>
-
-          {/* Notifications Dropdown */}
-          {showNotifications && (
-            <div className="absolute right-0 top-12 w-80 bg-white/97 backdrop-blur-md border border-border rounded-2xl shadow-xl p-4 z-50 animate-slide-up">
-              <div className="flex justify-between items-center mb-3">
-                <h4 className="font-bold text-textHeading text-xs">Notifications</h4>
-                <button 
-                  onClick={() => setShowNotifications(false)}
-                  className="text-[10px] text-textMuted hover:text-textHeading font-semibold"
-                >
-                  Close
-                </button>
-              </div>
-              <div className="space-y-3">
-                {notifications.length > 0 ? (
-                  notifications.map((notif) => (
-                    <div 
-                      key={notif.id} 
-                      style={{ backgroundColor: notif.bg, borderColor: notif.border }}
-                      className="p-2.5 rounded-xl border flex gap-2 items-start relative group"
-                    >
-                      <span className="text-sm">{notif.emoji}</span>
-                      <div className="flex-1 min-w-0 pr-4">
-                        <h5 className="font-bold text-[10px]" style={{ color: notif.titleColor }}>{notif.title}</h5>
-                        <p className="text-[9px] mt-0.5" style={{ color: notif.textColor }}>{notif.text}</p>
-                      </div>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setNotifications((prev) => prev.filter((n) => n.id !== notif.id));
-                        }}
-                        className="absolute top-2 right-2 text-textMuted hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-opacity text-[10px] font-bold px-1"
-                        title="Dismiss"
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  ))
-                ) : (
-                  <div className="py-6 text-center text-xs text-textMuted font-medium">
-                    No new notifications
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
         </div>
       </header>
+
+      {/* Notifications Dropdown — fixed on mobile, absolute on desktop */}
+      {showNotifications && (
+        <>
+          {/* Mobile backdrop to close on tap-outside */}
+          <div
+            className="fixed inset-0 z-40 sm:hidden"
+            onClick={() => setShowNotifications(false)}
+          />
+          <div className="fixed left-4 right-4 top-[8.5rem] z-50 sm:absolute sm:left-auto sm:right-8 sm:top-auto sm:mt-2 w-auto sm:w-80 bg-white border border-border rounded-2xl shadow-xl p-4 animate-slide-up">
+            <div className="flex justify-between items-center mb-3">
+              <h4 className="font-bold text-textHeading text-xs">Notifications</h4>
+              <button 
+                onClick={() => setShowNotifications(false)}
+                className="text-[10px] text-textMuted hover:text-textHeading font-semibold"
+              >
+                Close
+              </button>
+            </div>
+            <div className="space-y-3">
+              {notifications.length > 0 ? (
+                notifications.map((notif) => (
+                  <div 
+                    key={notif.id} 
+                    style={{ backgroundColor: notif.bg, borderColor: notif.border }}
+                    className="p-2.5 rounded-xl border flex gap-2 items-start relative group"
+                  >
+                    <span className="text-sm">{notif.emoji}</span>
+                    <div className="flex-1 min-w-0 pr-4">
+                      <h5 className="font-bold text-[10px]" style={{ color: notif.titleColor }}>{notif.title}</h5>
+                      <p className="text-[9px] mt-0.5" style={{ color: notif.textColor }}>{notif.text}</p>
+                    </div>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setNotifications((prev) => prev.filter((n) => n.id !== notif.id));
+                      }}
+                      className="absolute top-2 right-2 text-textMuted hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-opacity text-[10px] font-bold px-1"
+                      title="Dismiss"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))
+              ) : (
+                <div className="py-6 text-center text-xs text-textMuted font-medium">
+                  No new notifications
+                </div>
+              )}
+            </div>
+          </div>
+        </>
+      )}
 
       {/* Main Grid Content */}
       <main className="px-8 py-4 max-w-6xl mx-auto w-full grid grid-cols-1 lg:grid-cols-[1.5fr_1fr] gap-8">

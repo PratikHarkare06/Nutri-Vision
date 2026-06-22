@@ -3,6 +3,7 @@ const { FoodEntry, mapFoodEntryToAnalysis } = require("../models/FoodEntry");
 const { analyzeFoodWithFatSecret } = require("../services/fatSecretAnalysisService");
 const { createAppError } = require("../utils/createAppError");
 const { awardXP } = require("../services/gamificationService");
+const { getImageUrl } = require("../utils/urlHelper");
 
 const uploadImage = async (req, res, next) => {
   if (!req.file) {
@@ -11,7 +12,7 @@ const uploadImage = async (req, res, next) => {
   }
 
   try {
-    const imageUrl = `${env.appUrl}/uploads/${req.file.filename}`;
+    const imageUrl = getImageUrl(req, req.file.filename);
     const userMealType = (req.body.mealType || "").trim().toLowerCase();
     const uploadId = req.body.uploadId;
     
@@ -43,7 +44,7 @@ const uploadImage = async (req, res, next) => {
 
     res.status(200).json({
       success: true,
-      data: mapFoodEntryToAnalysis(savedEntry),
+      data: mapFoodEntryToAnalysis(savedEntry, req),
     });
   } catch (error) {
     if (error.message?.includes("FATSECRET_CONFIG_ERROR")) {
@@ -143,7 +144,7 @@ const correctIngredient = async (req, res, next) => {
     res.status(200).json({
       success: true,
       message: `Updated to ${nutriments.name}`,
-      data: mapFoodEntryToAnalysis(entry),
+      data: mapFoodEntryToAnalysis(entry, req),
     });
   } catch (error) {
     next(error);
@@ -225,7 +226,7 @@ const scanBarcode = async (req, res, next) => {
     res.status(200).json({
       success: true,
       message: `Scanned: ${fullName}`,
-      data: mapFoodEntryToAnalysis(savedEntry),
+      data: mapFoodEntryToAnalysis(savedEntry, req),
     });
 
   } catch (error) {
