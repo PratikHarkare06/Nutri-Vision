@@ -141,8 +141,15 @@ export const PantryPage = ({ onNavigate }: PantryPageProps) => {
 
   const handleFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
       setIsAddModalOpen(false);
-      await uploadPantryImage(e.target.files[0]);
+      const success = await uploadPantryImage(file);
+      if (e.target) {
+        e.target.value = "";
+      }
+      if (success) {
+        alert("Pantry image successfully analyzed! Your pantry inventory and recipe matches have been updated.");
+      }
     }
   };
 
@@ -154,6 +161,9 @@ export const PantryPage = ({ onNavigate }: PantryPageProps) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
       const result = await uploadReceipt(file);
+      if (e.target) {
+        e.target.value = "";
+      }
       if (result && result.length > 0) {
         addIngredientsToPantry(result);
         alert(`Successfully added ${result.length} items from receipt: ${result.join(", ")}`);
