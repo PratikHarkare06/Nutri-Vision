@@ -9,7 +9,7 @@ const callNvidiaNim = async (prompt, imagePath = null, mimeType = null) => {
   const isVision = !!(imagePath && mimeType);
   const model = isVision
     ? (process.env.NVIDIA_VISION_MODEL || "meta/llama-3.2-11b-vision-instruct")
-    : (process.env.NVIDIA_MODEL || "google/gemma-4-31b-it");
+    : (process.env.NVIDIA_MODEL || "meta/llama-3.1-8b-instruct");
   const messages = [];
 
   if (isVision) {

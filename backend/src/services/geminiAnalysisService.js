@@ -371,8 +371,21 @@ When answering the user, use this context to customize your replies. For example
 
     return response.text;
   } catch (error) {
-    console.error("Gemini Chat Response Error:", error);
-    throw new Error("Failed to generate chat response from Gemini.");
+    console.warn("Gemini Chat Response Error, trying fallback to NVIDIA NIM:", error.message || error);
+    try {
+      let promptWithHistory = `${systemInstruction}\n\n`;
+      if (history && history.length > 0) {
+        history.forEach(msg => {
+          promptWithHistory += `${msg.role === "user" ? "User" : "NutriBot"}: ${msg.text}\n`;
+        });
+      }
+      promptWithHistory += `User: ${message}\nNutriBot:`;
+      const response = await callNvidiaNim(promptWithHistory);
+      return response;
+    } catch (nimError) {
+      console.error("NIM Chat Fallback Error:", nimError);
+      throw new Error("Failed to generate chat response.");
+    }
   }
 };
 
