@@ -68,8 +68,76 @@ const callNvidiaNim = async (prompt, imagePath = null, mimeType = null) => {
 };
 
 const extractJsonFromText = (text) => {
-  // Match first JSON array [...] or object {...}
-  const match = text.match(/(\[[\s\S]*\]|\{[\s\S]*\})/);
+  // First clean out any <think>...</think> block to avoid matching brace contents inside the thinking phase
+  const cleanedText = text.replace(/<think>[\s\S]*?<\/think>/g, "").trim();
+
+  // Find the first occurrence of { or [
+  let startIdx = -1;
+  let isArray = false;
+  
+  for (let i = 0; i < cleanedText.length; i++) {
+    if (cleanedText[i] === '{') {
+      startIdx = i;
+      isArray = false;
+      break;
+    } else if (cleanedText[i] === '[') {
+      startIdx = i;
+      isArray = true;
+      break;
+    }
+  }
+  
+  if (startIdx === -1) {
+    throw new Error("No JSON structure found in text response.");
+  }
+  
+  // Track brace/bracket nesting to find the correct ending index
+  let braceCount = 0;
+  let bracketCount = 0;
+  let inString = false;
+  let escape = false;
+  
+  for (let i = startIdx; i < cleanedText.length; i++) {
+    const char = cleanedText[i];
+    
+    if (escape) {
+      escape = false;
+      continue;
+    }
+    
+    if (char === '\\') {
+      escape = true;
+      continue;
+    }
+    
+    if (char === '"') {
+      inString = !inString;
+      continue;
+    }
+    
+    if (!inString) {
+      if (char === '{') {
+        braceCount++;
+      } else if (char === '}') {
+        braceCount--;
+        if (braceCount === 0 && !isArray) {
+          const jsonStr = cleanedText.slice(startIdx, i + 1);
+          return JSON.parse(jsonStr);
+        }
+      } else if (char === '[') {
+        bracketCount++;
+      } else if (char === ']') {
+        bracketCount--;
+        if (bracketCount === 0 && isArray) {
+          const jsonStr = cleanedText.slice(startIdx, i + 1);
+          return JSON.parse(jsonStr);
+        }
+      }
+    }
+  }
+  
+  // Fallback to regex match if nesting check didn't result in clean parse
+  const match = cleanedText.match(/(\[[\s\S]*\]|\{[\s\S]*\})/);
   if (!match) {
     throw new Error("No JSON structure found in text response.");
   }

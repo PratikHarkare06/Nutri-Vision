@@ -31,6 +31,7 @@ type UploadState = {
   addScannedProductToHistory: (barcode: string, name: string) => void;
   clearScannedHistory: () => void;
   uploadReceipt: (file: File | null) => Promise<string[] | null>;
+  generateRecipesFromIngredients: (ingredients: string[]) => Promise<boolean>;
 };
 
 const allowedTypes = ["image/jpeg", "image/jpg", "image/png"];
@@ -201,6 +202,48 @@ export const useUploadStore = create<UploadState>((set, get) => ({
 
       set({
         pantryAnalysis: response.data,
+        controller: null,
+        errorMessage: "",
+        progressMessage: "",
+        isUploading: false,
+      });
+
+      return true;
+    } catch (error) {
+      set({
+        controller: null,
+        errorMessage: getUploadErrorMessage(error),
+        progressMessage: "",
+        isUploading: false,
+      });
+      return false;
+    }
+  },
+  generateRecipesFromIngredients: async (ingredients) => {
+    if (!ingredients || ingredients.length === 0) {
+      set({ errorMessage: "No ingredients found in pantry to generate ideas." });
+      return false;
+    }
+
+    const controller = new AbortController();
+
+    set({
+      controller,
+      errorMessage: "",
+      progressMessage: "Generating new recipe ideas...",
+      isUploading: true,
+    });
+
+    try {
+      const { generatePantryRecipesRequest } = await import("../services/profileApi");
+      const response = await generatePantryRecipesRequest(ingredients, controller.signal);
+
+      const currentAnalysis = get().pantryAnalysis;
+      set({
+        pantryAnalysis: {
+          identifiedIngredients: currentAnalysis?.identifiedIngredients || ingredients,
+          recipes: response.data,
+        },
         controller: null,
         errorMessage: "",
         progressMessage: "",

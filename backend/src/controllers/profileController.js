@@ -143,9 +143,23 @@ const suggestMeals = async (req, res, next) => {
 
 const generateDietPlan = async (req, res, next) => {
   try {
-    const profile = await UserProfile.findOne(profileFilter).lean();
+    let profile = await UserProfile.findOne(profileFilter).lean();
     if (!profile) {
-      return next(createAppError(404, "NOT_FOUND", "Profile not found"));
+      const defaultData = {
+        activity_level: "Moderately Active",
+        age: 30,
+        dietary_restrictions: ["Vegetarian", "Gluten-Free"],
+        email: "sarah.johnson@email.com",
+        food_allergies: ["Shellfish"],
+        gender: "Female",
+        height_cm: 165,
+        diet_mode: "Balanced",
+        name: "Sarah Johnson",
+        profile_key: "primary",
+        weight_kg: 62,
+      };
+      const created = await UserProfile.create(defaultData);
+      profile = created.toObject ? created.toObject() : created;
     }
 
     // Need to calculate metrics first
@@ -265,4 +279,31 @@ const generateGroceryListHandler = async (req, res, next) => {
   }
 };
 
-module.exports = { getProfile, saveProfile, suggestMeals, generateDietPlan, getProgressLogs, addProgressLog, generateGroceryList: generateGroceryListHandler };
+const getPantryRecipes = async (req, res, next) => {
+  try {
+    const { ingredients } = req.body;
+    if (!ingredients || !Array.isArray(ingredients) || ingredients.length === 0) {
+      return next(createAppError(400, "INVALID_DATA", "Ingredients array is required."));
+    }
+
+    const profile = await UserProfile.findOne(profileFilter).lean();
+    const { generateRecipesFromIngredients } = require("../services/geminiAnalysisService");
+    const recipes = await generateRecipesFromIngredients(ingredients, profile || {});
+
+    res.status(200).json({ success: true, data: recipes });
+  } catch (error) {
+    console.error("getPantryRecipes Controller Error:", error);
+    next(createAppError(500, "GENERATE_FAILED", "Failed to generate recipe ideas."));
+  }
+};
+
+module.exports = { 
+  getProfile, 
+  saveProfile, 
+  suggestMeals, 
+  generateDietPlan, 
+  getProgressLogs, 
+  addProgressLog, 
+  generateGroceryList: generateGroceryListHandler,
+  getPantryRecipes
+};

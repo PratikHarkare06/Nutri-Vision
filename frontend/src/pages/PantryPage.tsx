@@ -114,7 +114,8 @@ export const PantryPage = ({ onNavigate }: PantryPageProps) => {
     addScannedProductToHistory,
     clearScannedHistory,
     scanBarcode,
-    uploadReceipt
+    uploadReceipt,
+    generateRecipesFromIngredients
   } = useUploadStore();
 
   const handleBarcodeDetected = async (barcode: string) => {
@@ -150,6 +151,23 @@ export const PantryPage = ({ onNavigate }: PantryPageProps) => {
       if (success) {
         alert("Pantry image successfully analyzed! Your pantry inventory and recipe matches have been updated.");
       }
+    }
+  };
+  
+  const handleGenerateRecipes = async () => {
+    const currentList = pantryAnalysis 
+      ? pantryAnalysis.identifiedIngredients 
+      : mockPantryItems.map(item => item.name);
+
+    if (currentList.length === 0) {
+      alert("Please add some ingredients to your pantry first!");
+      return;
+    }
+
+    try {
+      await generateRecipesFromIngredients(currentList);
+    } catch (err) {
+      console.error(err);
     }
   };
 
@@ -693,10 +711,14 @@ export const PantryPage = ({ onNavigate }: PantryPageProps) => {
               We found {pantryAnalysis ? pantryAnalysis.recipes.length : 12} recipes you can make with your current pantry items.
             </p>
             <button
-              onClick={triggerUpload}
-              className="w-full py-2.5 bg-[#9DB89F] hover:bg-[#7A9E7E] text-white rounded-xl text-xs font-bold transition-all shadow-sm"
+              onClick={handleGenerateRecipes}
+              disabled={isUploading}
+              className="w-full py-2.5 bg-[#9DB89F] hover:bg-[#7A9E7E] text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-1.5 disabled:opacity-50"
             >
-              Generate New Ideas
+              {isUploading && progressMessage?.includes("recipe") ? (
+                <div className="animate-spin h-3.5 w-3.5 border-2 border-white border-t-transparent rounded-full" />
+              ) : null}
+              {isUploading && progressMessage?.includes("recipe") ? "Generating..." : "Generate New Ideas"}
             </button>
           </section>
 
