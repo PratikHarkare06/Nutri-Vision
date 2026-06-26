@@ -121,6 +121,21 @@ export const WorkoutPage = ({ onNavigate }: WorkoutPageProps) => {
   const [recoveryCalorieBurn, setRecoveryCalorieBurn] = useState(450);
   const [applyBiometricAdjustments, setApplyBiometricAdjustments] = useState(false);
 
+  // Feature 7: Calorie Burn Estimator state
+  const BURN_ACTIVITIES = [
+    { name: "Running", emoji: "🏃", met: 9.8 },
+    { name: "Cycling", emoji: "🚴", met: 7.5 },
+    { name: "Swimming", emoji: "🏊", met: 8.0 },
+    { name: "Weights", emoji: "🏋️", met: 6.0 },
+    { name: "Yoga", emoji: "🧘", met: 3.0 },
+    { name: "HIIT", emoji: "⚡", met: 12.0 },
+  ];
+  const [burnActivityIdx, setBurnActivityIdx] = useState(0);
+  const [estimatorDuration, setEstimatorDuration] = useState(30);
+  const selectedBurnActivity = BURN_ACTIVITIES[burnActivityIdx];
+  const burnWeight = profile?.weight || 70;
+  const caloriesEstimate = Math.round(selectedBurnActivity.met * burnWeight * (estimatorDuration / 60));
+
   const playMetronomeTick = (frequency: number, duration: number) => {
     try {
       const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
@@ -885,6 +900,82 @@ export const WorkoutPage = ({ onNavigate }: WorkoutPageProps) => {
               >
                 View Full History
               </button>
+            </div>
+          </section>
+
+          {/* ── Feature 7: Calorie Burn Estimator ── */}
+          <section className="bg-gradient-to-br from-[#FEF0EB] to-white rounded-[24px] border border-[#FEE2D5] p-6 shadow-sm">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <span className="text-lg">🔥</span>
+                <div>
+                  <h3 className="font-bold text-textHeading text-sm">Calorie Burn Estimator</h3>
+                  <p className="text-[10px] text-textMuted">Estimate calories by activity & duration</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Activity type grid */}
+            <div className="grid grid-cols-3 gap-2 mb-4">
+              {BURN_ACTIVITIES.map((act, idx) => (
+                <button
+                  key={act.name}
+                  onClick={() => setBurnActivityIdx(idx)}
+                  className={`py-2.5 rounded-xl text-[10px] font-bold border transition-all flex flex-col items-center gap-1 ${
+                    burnActivityIdx === idx
+                      ? "bg-white border-[#E8815A] text-[#E8815A] shadow-md border-2"
+                      : "bg-white/50 border-[#E2E4DC] text-textMuted hover:border-gray-300"
+                  }`}
+                >
+                  <span className="text-base">{act.emoji}</span>
+                  {act.name}
+                </button>
+              ))}
+            </div>
+
+            {/* Duration slider */}
+            <div className="mb-4">
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-[10px] font-bold text-textMuted uppercase tracking-wider">Duration</span>
+                <span className="text-sm font-extrabold text-[#E8815A]">{estimatorDuration} min</span>
+              </div>
+              <input
+                type="range"
+                min="5"
+                max="120"
+                step="5"
+                value={estimatorDuration}
+                onChange={(e) => setEstimatorDuration(Number(e.target.value))}
+                className="w-full h-2 rounded-full appearance-none cursor-pointer"
+                style={{
+                  background: `linear-gradient(to right, #E8815A 0%, #E8815A ${((estimatorDuration - 5) / 115) * 100}%, #E2E4DC ${((estimatorDuration - 5) / 115) * 100}%, #E2E4DC 100%)`,
+                }}
+              />
+              <div className="flex justify-between mt-1">
+                <span className="text-[9px] text-textMuted">5 min</span>
+                <span className="text-[9px] text-textMuted">120 min</span>
+              </div>
+            </div>
+
+            {/* Result */}
+            <div className="bg-white rounded-xl p-4 border border-[#FEE2D5] text-center">
+              <p className="text-[10px] text-textMuted font-bold uppercase tracking-wider mb-1">Estimated Burn</p>
+              <div className="text-3xl font-black text-[#E8815A]">
+                {caloriesEstimate}
+                <span className="text-sm text-textMuted font-semibold ml-1">kcal</span>
+              </div>
+              <p className="text-[9px] text-textMuted mt-1.5">
+                {selectedBurnActivity.emoji} {selectedBurnActivity.name} · {estimatorDuration} min · MET {selectedBurnActivity.met}
+              </p>
+              <div className="flex items-center justify-center gap-2 mt-3">
+                <span className="text-[10px] font-bold text-textMuted">≈</span>
+                <span className="bg-[#EBF2EB] text-[#2C3E2B] text-[9px] px-2 py-1 rounded-full font-bold">
+                  🍌 {Math.round(caloriesEstimate / 89)} bananas
+                </span>
+                <span className="bg-[#FEF9EB] text-[#D4A847] text-[9px] px-2 py-1 rounded-full font-bold">
+                  🍕 {(caloriesEstimate / 285).toFixed(1)} pizza slices
+                </span>
+              </div>
             </div>
           </section>
 

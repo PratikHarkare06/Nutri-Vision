@@ -62,6 +62,45 @@ export const DashboardPage = ({ onUploadSuccess, onNavigate }: DashboardPageProp
   // Goals (approximate defaults matching Nutrixa targets)
   const GOALS = { calories: 1900, protein: 120, carbs: 200, fat: 60 };
 
+  // Dynamic Hydration Coach state
+  const [workoutIntensity, setWorkoutIntensity] = useState<"rest" | "light" | "moderate" | "intense">("moderate");
+  const [hydrationStreak, setHydrationStreak] = useState(5); // days
+
+  const HYDRATION_GOALS: Record<string, number> = {
+    rest: 2000,
+    light: 2500,
+    moderate: 3000,
+    intense: 3500,
+  };
+  const waterGoal = HYDRATION_GOALS[workoutIntensity];
+
+  // Time-of-day segments (08:00-12:00, 12:00-17:00, 17:00-21:00)
+  const getTimeSegments = (totalMl: number, goal: number) => {
+    const now = new Date();
+    const hour = now.getHours();
+    // Morning: 08-12, Afternoon: 12-17, Evening: 17-21+
+    const morningTarget = goal * 0.35;
+    const afternoonTarget = goal * 0.40;
+    const eveningTarget = goal * 0.25;
+    // Distribute consumed water by time-of-day
+    const morningConsumed = hour >= 8 ? Math.min(totalMl * 0.35, morningTarget) : 0;
+    const afternoonConsumed = hour >= 12 ? Math.min(totalMl * 0.40, afternoonTarget) : 0;
+    const eveningConsumed = hour >= 17 ? Math.min(totalMl * 0.25, eveningTarget) : 0;
+    return [
+      { label: "Morning", icon: "🌅", consumed: Math.round(morningConsumed), target: Math.round(morningTarget), active: hour >= 8 && hour < 12 },
+      { label: "Afternoon", icon: "☀️", consumed: Math.round(afternoonConsumed), target: Math.round(afternoonTarget), active: hour >= 12 && hour < 17 },
+      { label: "Evening", icon: "🌙", consumed: Math.round(eveningConsumed), target: Math.round(eveningTarget), active: hour >= 17 },
+    ];
+  };
+
+  const getHydrationTip = (intensity: string, pct: number) => {
+    if (intensity === "intense") return "High-intensity session detected! Drink 500ml within 30 min post-workout to replenish electrolytes.";
+    if (intensity === "moderate" && pct < 50) return "You're halfway through your day — make sure to drink 250ml before each meal for optimal digestion.";
+    if (pct >= 90) return "Excellent hydration today! 💦 You're in the optimal zone for nutrient absorption and metabolism.";
+    if (pct < 30) return "Hydration is low! Set a reminder to drink a glass of water every 90 minutes throughout the day.";
+    return "Consistent hydration supports energy levels, skin health, and workout performance. Keep sipping!";
+  };
+
   // Voice & Barcode Logging States
   const [loggingMode, setLoggingMode] = useState<"image" | "voice" | "barcode">("image");
   const [voiceTranscript, setVoiceTranscript] = useState("");
@@ -253,14 +292,14 @@ export const DashboardPage = ({ onUploadSuccess, onNavigate }: DashboardPageProp
   };
 
   const handleAddWater = (amount: number) => {
-    setHydrationML((prev) => Math.min(3000, prev + amount));
+    setHydrationML((prev) => Math.min(waterGoal, prev + amount));
   };
 
   const handleSubtractWater = () => {
     setHydrationML((prev) => Math.max(0, prev - 250));
   };
 
-  const hydrationPercent = Math.min(100, Math.round((hydrationML / 3000) * 100));
+  const hydrationPercent = Math.min(100, Math.round((hydrationML / waterGoal) * 100));
 
   return (
     <div className="flex-1 min-h-screen bg-background relative overflow-y-auto pb-24 animate-fade-in">
@@ -420,128 +459,149 @@ export const DashboardPage = ({ onUploadSuccess, onNavigate }: DashboardPageProp
             </div>
           </section>
 
-          {/* Hydration Tracker Section */}
-          <section className="bg-white rounded-[24px] border border-border p-6 shadow-sm flex flex-col md:flex-row items-center justify-between gap-6 card-hover animate-slide-up relative overflow-hidden">
+          {/* ── Feature 4: Dynamic Hydration Coach (upgraded) ── */}
+          <section className="bg-white rounded-[24px] border border-border p-6 shadow-sm card-hover animate-slide-up relative overflow-hidden">
             <style>{`
               @keyframes waveMove {
                 0% { transform: translate(-160px, 0); }
                 100% { transform: translate(0, 0); }
               }
-              .wave-animate-1 {
-                animation: waveMove 3s infinite linear;
-              }
-              .wave-animate-2 {
-                animation: waveMove 2s infinite linear;
-              }
+              .wave-animate-1 { animation: waveMove 3s infinite linear; }
+              .wave-animate-2 { animation: waveMove 2s infinite linear; }
             `}</style>
 
-            <div className="space-y-4 flex-1 w-full">
-              <div className="flex justify-between items-start">
-                <div>
-                  <h2 className="text-lg font-bold text-textHeading">Hydration Tracker</h2>
-                  <p className="text-sm text-textMuted mt-1">You've drunk {(hydrationML/1000).toFixed(2)}L of your 3.0L goal.</p>
-                </div>
-                {hydrationML > 0 && (
-                  <button 
-                    onClick={handleSubtractWater}
-                    title="Undo last log"
-                    className="text-xs font-bold text-[#E8815A] hover:text-[#c4613b] border border-[#FEE2D5] bg-[#FEF0EB] px-3 py-1.5 rounded-full transition-colors flex items-center gap-1 shadow-sm"
-                  >
-                    <span>↺</span> Undo
-                  </button>
-                )}
+            {/* Header row */}
+            <div className="flex justify-between items-start mb-4">
+              <div>
+                <h2 className="text-lg font-bold text-textHeading flex items-center gap-2">
+                  <WaterIcon className="w-5 h-5 text-[#7A9EBE]" />
+                  Dynamic Hydration Coach
+                </h2>
+                <p className="text-xs text-textMuted mt-0.5">
+                  Goal: <span className="font-bold text-[#7A9EBE]">{(waterGoal/1000).toFixed(1)}L</span>
+                  &nbsp;·&nbsp;Consumed: <span className="font-bold text-textHeading">{(hydrationML/1000).toFixed(2)}L</span>
+                  &nbsp;·&nbsp;<span className="text-amber-500 font-bold">🔥 {hydrationStreak}d streak</span>
+                </p>
               </div>
+              {hydrationML > 0 && (
+                <button
+                  onClick={handleSubtractWater}
+                  title="Undo last log"
+                  className="text-xs font-bold text-[#E8815A] hover:text-[#c4613b] border border-[#FEE2D5] bg-[#FEF0EB] px-3 py-1.5 rounded-full transition-colors flex items-center gap-1 shadow-sm"
+                >
+                  <span>↺</span> Undo
+                </button>
+              )}
+            </div>
 
-              {/* Logging Presets Grid */}
-              <div className="grid grid-cols-2 gap-3 max-w-sm">
-                <button
-                  onClick={() => handleAddWater(150)}
-                  className="px-3 py-2.5 bg-[#F9FAF8] border border-[#E2E4DC] hover:border-[#7A9EBE] hover:bg-[#EBF2F8] text-textHeading hover:text-[#7A9EBE] rounded-2xl text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-1.5"
-                >
-                  <span>🥛</span> Cup (+150ml)
-                </button>
-                <button
-                  onClick={() => handleAddWater(250)}
-                  className="px-3 py-2.5 bg-[#F9FAF8] border border-[#E2E4DC] hover:border-[#7A9EBE] hover:bg-[#EBF2F8] text-textHeading hover:text-[#7A9EBE] rounded-2xl text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-1.5"
-                >
-                  <span>🥛</span> Glass (+250ml)
-                </button>
-                <button
-                  onClick={() => handleAddWater(500)}
-                  className="px-3 py-2.5 bg-[#F9FAF8] border border-[#E2E4DC] hover:border-[#7A9EBE] hover:bg-[#EBF2F8] text-textHeading hover:text-[#7A9EBE] rounded-2xl text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-1.5"
-                >
-                  <span>🍼</span> Bottle (+500ml)
-                </button>
-                <button
-                  onClick={() => handleAddWater(750)}
-                  className="px-3 py-2.5 bg-[#F9FAF8] border border-[#E2E4DC] hover:border-[#7A9EBE] hover:bg-[#EBF2F8] text-textHeading hover:text-[#7A9EBE] rounded-2xl text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-1.5"
-                >
-                  <span>🥤</span> Shaker (+750ml)
-                </button>
+            {/* Workout Intensity Selector */}
+            <div className="mb-4">
+              <p className="text-[10px] font-bold text-textMuted uppercase tracking-wider mb-2">Today's Workout Intensity</p>
+              <div className="flex gap-2">
+                {([
+                  { key: "rest", label: "Rest", emoji: "😴", color: "#9DB89F" },
+                  { key: "light", label: "Light", emoji: "🚶", color: "#D4A847" },
+                  { key: "moderate", label: "Moderate", emoji: "🏃", color: "#7A9EBE" },
+                  { key: "intense", label: "Intense", emoji: "🔥", color: "#E8815A" },
+                ] as const).map(({ key, label, emoji, color }) => (
+                  <button
+                    key={key}
+                    onClick={() => setWorkoutIntensity(key)}
+                    className={`flex-1 py-2 rounded-xl text-[10px] font-bold border transition-all flex flex-col items-center gap-0.5 ${
+                      workoutIntensity === key
+                        ? "bg-white border-[2px] shadow-md"
+                        : "bg-[#F9FAF8] border-[#E2E4DC] text-textMuted hover:border-gray-300"
+                    }`}
+                    style={workoutIntensity === key ? { borderColor: color, color } : {}}
+                  >
+                    <span className="text-base">{emoji}</span>
+                    {label}
+                  </button>
+                ))}
               </div>
             </div>
 
-            {/* Premium Animated Tumbler SVG */}
-            <div className="relative w-32 h-36 flex-shrink-0 flex items-center justify-center">
-              <svg viewBox="0 0 100 120" className="w-full h-full">
-                <defs>
-                  <clipPath id="glass-water-clip">
-                    {/* Inner glass contour matching shape */}
-                    <path d="M 28 12 L 34 104 A 6 6 0 0 0 40 110 L 60 110 A 6 6 0 0 0 66 104 L 72 12 Z" />
-                  </clipPath>
-                </defs>
+            {/* Main layout: Segments + Tumbler */}
+            <div className="flex flex-col md:flex-row items-center gap-6">
 
-                {/* Glass Inner Liquid Content */}
-                <g clipPath="url(#glass-water-clip)">
-                  {/* Background Water Base */}
-                  <rect
-                    x="0"
-                    y={112 - (hydrationPercent * 1.0)}
-                    width="100"
-                    height="120"
-                    fill="#7A9EBE"
-                    className="transition-all duration-1000 ease-out"
-                    opacity="0.85"
-                  />
-                  
-                  {/* Wave Layer 1 */}
-                  <path
-                    d="M 0 10 Q 20 5, 40 10 T 80 10 T 120 10 T 160 10 T 200 10 L 200 120 L 0 120 Z"
-                    fill="#7A9EBE"
-                    transform={`translate(0, ${100 - (hydrationPercent * 1.0)})`}
-                    className="wave-animate-1 transition-all duration-1000 ease-out opacity-70"
-                  />
+              {/* Time-of-day segments */}
+              <div className="flex-1 w-full space-y-2.5">
+                {getTimeSegments(hydrationML, waterGoal).map((seg) => {
+                  const segPct = Math.min(100, Math.round((seg.consumed / seg.target) * 100));
+                  return (
+                    <div key={seg.label} className={`rounded-xl p-3 border transition-all ${
+                      seg.active ? "bg-[#EBF2F8] border-[#B8D4EB]" : "bg-[#F9FAF8] border-[#E2E4DC]"
+                    }`}>
+                      <div className="flex justify-between items-center mb-1.5">
+                        <span className="text-xs font-bold text-textHeading flex items-center gap-1.5">
+                          {seg.icon} {seg.label}
+                          {seg.active && <span className="text-[9px] bg-[#7A9EBE] text-white px-1.5 py-0.5 rounded-full font-bold">NOW</span>}
+                        </span>
+                        <span className="text-[10px] font-semibold text-textMuted">
+                          {(seg.consumed/1000).toFixed(2)}L / {(seg.target/1000).toFixed(2)}L
+                        </span>
+                      </div>
+                      <div className="h-1.5 bg-white rounded-full overflow-hidden border border-[#D4E6D5]/50">
+                        <div
+                          className="h-full bg-[#7A9EBE] rounded-full transition-all duration-700"
+                          style={{ width: `${segPct}%` }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
 
-                  {/* Wave Layer 2 */}
-                  <path
-                    d="M 0 10 Q 25 15, 50 10 T 100 10 T 150 10 T 200 10 L 200 120 L 0 120 Z"
-                    fill="#5F88AD"
-                    transform={`translate(0, ${102 - (hydrationPercent * 1.0)})`}
-                    className="wave-animate-2 transition-all duration-1000 ease-out"
-                  />
-                </g>
-
-                {/* Glass Exterior Shape */}
-                <path
-                  d="M 27 10 L 33 105 A 8 8 0 0 0 41 112 L 59 112 A 8 8 0 0 0 67 105 L 73 10"
-                  fill="none"
-                  stroke="#E2E4DC"
-                  strokeWidth="3.5"
-                  strokeLinecap="round"
-                />
-
-                {/* Measuring ticks on glass */}
-                <line x1="68" y1="30" x2="72" y2="30" stroke="#E2E4DC" strokeWidth="1.5" />
-                <line x1="66" y1="60" x2="70" y2="60" stroke="#E2E4DC" strokeWidth="1.5" />
-                <line x1="64" y1="90" x2="68" y2="90" stroke="#E2E4DC" strokeWidth="1.5" />
-              </svg>
-              
-              {/* Percent Indicator Overlay */}
-              <div className="absolute inset-0 flex items-center justify-center pointer-events-none mt-4">
-                <span className="text-base font-black text-textHeading drop-shadow-md select-none bg-white/70 px-2 py-0.5 rounded-full border border-border/40">
-                  {hydrationPercent}%
-                </span>
+                {/* Quick log buttons */}
+                <div className="grid grid-cols-2 gap-2 pt-1">
+                  {[
+                    { ml: 150, label: "Cup", emoji: "🥛" },
+                    { ml: 250, label: "Glass", emoji: "🥛" },
+                    { ml: 500, label: "Bottle", emoji: "🍼" },
+                    { ml: 750, label: "Shaker", emoji: "🥤" },
+                  ].map(({ ml, label, emoji }) => (
+                    <button
+                      key={ml}
+                      onClick={() => handleAddWater(ml)}
+                      className="px-3 py-2 bg-[#F9FAF8] border border-[#E2E4DC] hover:border-[#7A9EBE] hover:bg-[#EBF2F8] text-textHeading hover:text-[#7A9EBE] rounded-xl text-[11px] font-bold transition-all flex items-center justify-center gap-1.5"
+                    >
+                      {emoji} +{ml}ml {label}
+                    </button>
+                  ))}
+                </div>
               </div>
+
+              {/* Animated Tumbler SVG */}
+              <div className="relative w-28 h-32 flex-shrink-0 flex items-center justify-center">
+                <svg viewBox="0 0 100 120" className="w-full h-full">
+                  <defs>
+                    <clipPath id="glass-water-clip-v2">
+                      <path d="M 28 12 L 34 104 A 6 6 0 0 0 40 110 L 60 110 A 6 6 0 0 0 66 104 L 72 12 Z" />
+                    </clipPath>
+                  </defs>
+                  <g clipPath="url(#glass-water-clip-v2)">
+                    <rect x="0" y={112 - (hydrationPercent * 1.0)} width="100" height="120" fill="#7A9EBE" className="transition-all duration-1000 ease-out" opacity="0.85" />
+                    <path d="M 0 10 Q 20 5, 40 10 T 80 10 T 120 10 T 160 10 T 200 10 L 200 120 L 0 120 Z" fill="#7A9EBE" transform={`translate(0, ${100 - (hydrationPercent * 1.0)})`} className="wave-animate-1 transition-all duration-1000 ease-out opacity-70" />
+                    <path d="M 0 10 Q 25 15, 50 10 T 100 10 T 150 10 T 200 10 L 200 120 L 0 120 Z" fill="#5F88AD" transform={`translate(0, ${102 - (hydrationPercent * 1.0)})`} className="wave-animate-2 transition-all duration-1000 ease-out" />
+                  </g>
+                  <path d="M 27 10 L 33 105 A 8 8 0 0 0 41 112 L 59 112 A 8 8 0 0 0 67 105 L 73 10" fill="none" stroke="#E2E4DC" strokeWidth="3.5" strokeLinecap="round" />
+                  <line x1="68" y1="30" x2="72" y2="30" stroke="#E2E4DC" strokeWidth="1.5" />
+                  <line x1="66" y1="60" x2="70" y2="60" stroke="#E2E4DC" strokeWidth="1.5" />
+                  <line x1="64" y1="90" x2="68" y2="90" stroke="#E2E4DC" strokeWidth="1.5" />
+                </svg>
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none mt-4">
+                  <span className="text-sm font-black text-textHeading drop-shadow-md select-none bg-white/70 px-2 py-0.5 rounded-full border border-border/40">
+                    {hydrationPercent}%
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Coach Tip */}
+            <div className="mt-4 pt-4 border-t border-[#F5F5F0] flex items-start gap-2">
+              <span className="text-base">💡</span>
+              <p className="text-[11px] text-textMuted leading-relaxed">
+                {getHydrationTip(workoutIntensity, hydrationPercent)}
+              </p>
             </div>
           </section>
         </div>
@@ -698,6 +758,70 @@ export const DashboardPage = ({ onUploadSuccess, onNavigate }: DashboardPageProp
               <p className="text-[11px] text-[#2C3E2B] leading-relaxed font-medium">
                 {macroAdvice || "Loading your daily macro snapshot..."}
               </p>
+            </div>
+          </section>
+
+          {/* ── Feature 6: Meal Streak & Consistency Score ── */}
+          <section className="bg-white rounded-[24px] border border-border p-5 shadow-sm animate-slide-up">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <span className="text-lg">🔥</span>
+                <div>
+                  <h3 className="font-extrabold text-textHeading text-sm">Logging Streak</h3>
+                  <p className="text-[10px] text-textMuted font-medium">Consistency builds results</p>
+                </div>
+              </div>
+              <div className="text-right">
+                <span className="text-2xl font-black text-[#E8815A]">7</span>
+                <p className="text-[9px] text-textMuted font-bold uppercase">day streak</p>
+              </div>
+            </div>
+
+            {/* Weekly Heatmap */}
+            <div className="flex gap-1.5 mb-4">
+              {["M","T","W","T","F","S","S"].map((day, i) => {
+                // Mock: 7-day streak means all days are logged
+                const logged = i < 7;
+                const isToday = i === new Date().getDay() - 1 || (new Date().getDay() === 0 && i === 6);
+                return (
+                  <div key={`${day}-${i}`} className="flex-1 flex flex-col items-center gap-1">
+                    <span className="text-[9px] font-bold text-textMuted">{day}</span>
+                    <div className={`w-full aspect-square rounded-lg border-2 flex items-center justify-center transition-all ${
+                      isToday
+                        ? "border-[#E8815A] bg-[#FEF0EB]"
+                        : logged
+                          ? "border-[#9DB89F] bg-[#EBF2EB]"
+                          : "border-[#E2E4DC] bg-[#F9FAF8]"
+                    }`}>
+                      <span className="text-xs">
+                        {logged ? "✅" : isToday ? "📍" : "·"}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Consistency Score */}
+            <div className="flex items-center gap-4 bg-gradient-to-r from-[#EBF2EB] to-[#F5F5F0] rounded-xl p-3 border border-[#D4E6D5]">
+              <div className="relative w-12 h-12 flex-shrink-0">
+                <svg viewBox="0 0 36 36" className="w-full h-full transform -rotate-90">
+                  <circle cx="18" cy="18" r="15" fill="none" stroke="#E2E4DC" strokeWidth="3" />
+                  <circle
+                    cx="18" cy="18" r="15" fill="none"
+                    stroke="#9DB89F" strokeWidth="3"
+                    strokeLinecap="round"
+                    strokeDasharray={`${85 * 0.942} ${100 * 0.942}`}
+                  />
+                </svg>
+                <span className="absolute inset-0 flex items-center justify-center text-[10px] font-black text-[#2C3E2B]">85%</span>
+              </div>
+              <div className="flex-1">
+                <p className="text-xs font-bold text-textHeading">Consistency Score</p>
+                <p className="text-[10px] text-textMuted leading-relaxed mt-0.5">
+                  You've logged meals 6 out of 7 days this week. One more day to hit a perfect week! 🎯
+                </p>
+              </div>
             </div>
           </section>
 
