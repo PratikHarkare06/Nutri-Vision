@@ -7,7 +7,7 @@ const { createAppError } = require("../utils/createAppError");
 
 const getSleepLogs = async (req, res, next) => {
   try {
-    const logs = await SleepLog.find({}).sort({ date: -1 }).limit(30).lean();
+    const logs = await SleepLog.find({ userId: req.user._id }).sort({ date: -1 }).limit(30).lean();
     res.status(200).json({
       success: true,
       data: logs.reverse(), // return chronological order for charts
@@ -27,8 +27,9 @@ const logSleep = async (req, res, next) => {
     }
 
     const log = await SleepLog.findOneAndUpdate(
-      { date },
+      { date, userId: req.user._id },
       {
+        userId: req.user._id,
         duration_hours: Number(duration_hours),
         quality_score: Number(quality_score),
         deep_sleep_hours: Number(deep_sleep_hours || 0),
@@ -54,10 +55,10 @@ const logSleep = async (req, res, next) => {
 
 const getSleepInsights = async (req, res, next) => {
   try {
-    const sleepLogs = await SleepLog.find({}).sort({ date: -1 }).limit(5).lean();
-    const workouts = await WorkoutLog.find({}).sort({ date: -1 }).limit(5).lean();
-    const foods = await FoodEntry.find({}).sort({ created_at: -1 }).limit(5).lean();
-    const profile = await UserProfile.findOne({ profile_key: "primary" }).lean();
+    const sleepLogs = await SleepLog.find({ userId: req.user._id }).sort({ date: -1 }).limit(5).lean();
+    const workouts = await WorkoutLog.find({ userId: req.user._id }).sort({ date: -1 }).limit(5).lean();
+    const foods = await FoodEntry.find({ userId: req.user._id }).sort({ created_at: -1 }).limit(5).lean();
+    const profile = await UserProfile.findOne({ userId: req.user._id }).lean();
 
     if (sleepLogs.length === 0) {
       return res.status(200).json({

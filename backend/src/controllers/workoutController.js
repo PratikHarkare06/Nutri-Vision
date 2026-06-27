@@ -3,13 +3,13 @@ const { WorkoutLog } = require("../models/WorkoutLog");
 const { generateWorkoutPlanWithGemini } = require("../services/geminiWorkoutService");
 const { createAppError } = require("../utils/createAppError");
 
-const profileFilter = { profile_key: "primary" };
+const getProfileFilter = (req) => ({ userId: req.user._id });
 
 const generateWorkoutPlan = async (req, res, next) => {
   try {
-    const profile = await UserProfile.findOne(profileFilter).lean();
+    const profile = await UserProfile.findOne(getProfileFilter(req)).lean();
     if (!profile) {
-      return next(createAppError(404, "NOT_FOUND", "Profile not found."));
+      return next(createAppError(404, "NOT_FOUND", "Profile not found. Please complete onboarding first."));
     }
 
     const mappedProfile = mapUserProfileToResponse(profile);
@@ -17,7 +17,7 @@ const generateWorkoutPlan = async (req, res, next) => {
 
     // Save the plan to the user profile
     const updatedProfile = await UserProfile.findOneAndUpdate(
-      profileFilter,
+      getProfileFilter(req),
       { workout_plan: workoutPlan },
       { new: true, upsert: true }
     ).lean();
@@ -31,7 +31,7 @@ const generateWorkoutPlan = async (req, res, next) => {
 
 const getWorkoutPlan = async (req, res, next) => {
   try {
-    const profile = await UserProfile.findOne(profileFilter).lean();
+    const profile = await UserProfile.findOne(getProfileFilter(req)).lean();
     if (!profile || !profile.workout_plan) {
       return res.status(200).json({ success: true, data: null });
     }
@@ -53,6 +53,7 @@ const completeWorkoutSession = async (req, res, next) => {
 
     // 1. Create Workout Log
     const newLog = await WorkoutLog.create({
+      userId: req.user._id,
       date: logDate,
       workout_name,
       duration_mins: Number(duration_mins),
@@ -60,7 +61,7 @@ const completeWorkoutSession = async (req, res, next) => {
     });
 
     // 2. Fetch profile to award XP
-    const profile = await UserProfile.findOne(profileFilter);
+    const profile = await UserProfile.findOne(getProfileFilter(req));
     if (!profile) {
       return next(createAppError(404, "NOT_FOUND", "Profile not found."));
     }

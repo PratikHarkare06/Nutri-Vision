@@ -12,19 +12,18 @@ const { createAppError } = require("../utils/createAppError");
 const { callNvidiaNim, extractJsonFromText } = require("../utils/nvidiaNim");
 const { FoodEntry } = require("../models/FoodEntry");
 const { DailyWater } = require("../models/DailyWater");
-
-const profileFilter = { profile_key: "primary" };
+const getProfileFilter = (req) => ({ userId: req.user._id });
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const isPositiveNumber = (value) =>
-  typeof value === "number" && Number.isFinite(value) && value > 0;
+  (typeof value === "number" && value > 0) ||
+  (typeof value === "string" && !Number.isNaN(Number(value)) && Number(value) > 0);
 
 const normalizeArray = (value) => {
   if (!Array.isArray(value)) {
     return [];
   }
-
   return value
     .filter((item) => typeof item === "string")
     .map((item) => item.trim())
@@ -62,43 +61,62 @@ const validateProfilePayload = (payload) => {
     throw createAppError(400, "VALIDATION_FAILED", "Please fill all required fields.");
   }
 
-  const hasInvalidValue =
-    !emailPattern.test(email) ||
-    !isPositiveNumber(age) ||
-    !isPositiveNumber(height) ||
-    !isPositiveNumber(weight) ||
-    !genderOptions.includes(gender) ||
-    !activityLevelOptions.includes(activityLevel) ||
-    !dietModeOptions.includes(dietMode) ||
-    dietaryRestrictions.some((item) => !dietaryRestrictionOptions.includes(item)) ||
-    foodAllergies.some((item) => !allergyOptions.includes(item));
-
-  if (hasInvalidValue) {
-    throw createAppError(400, "VALIDATION_FAILED", "Invalid value entered.");
+  if (!emailPattern.test(email)) {
+    throw createAppError(400, "INVALID_EMAIL", "Provide a valid email address.");
   }
+
+  if (!isPositiveNumber(age) || !isPositiveNumber(height) || !isPositiveNumber(weight)) {
+    throw createAppError(400, "INVALID_NUMERIC", "Age, height, and weight must be positive numbers.");
+  }
+
+  if (!activityLevelOptions.includes(activityLevel)) {
+    throw createAppError(400, "INVALID_ACTIVITY", "Invalid activity level.");
+  }
+
+  if (!genderOptions.includes(gender)) {
+    throw createAppError(400, "INVALID_GENDER", "Invalid gender value.");
+  }
+
+  if (dietMode && !dietModeOptions.includes(dietMode)) {
+    throw createAppError(400, "INVALID_DIET_MODE", "Invalid diet mode.");
+  }
+
+  const cleanAllergies = foodAllergies.filter((a) => allergyOptions.includes(a));
+  const cleanRestrictions = dietaryRestrictions.filter((r) => dietaryRestrictionOptions.includes(r));
 
   return {
     activity_level: activityLevel,
     age,
-    dietary_restrictions: dietaryRestrictions,
+    dietary_restrictions: cleanRestrictions,
     email,
-    food_allergies: foodAllergies,
+    food_allergies: cleanAllergies,
     gender,
     height_cm: height,
     diet_mode: dietMode,
     name: fullName,
-    profile_key: "primary",
     weight_kg: weight,
   };
 };
 
-const getProfile = async (_req, res, next) => {
+const getProfile = async (req, res, next) => {
   try {
-    const profile = await UserProfile.findOne(profileFilter).lean();
+    const profile = await UserProfile.findOne(getProfileFilter(req)).lean();
+
+    if (!profile) {
+      const dynamicDefault = {
+        ...defaultUserProfile,
+        name: req.user.name,
+        email: req.user.email,
+      };
+      return res.status(200).json({
+        success: true,
+        data: dynamicDefault,
+      });
+    }
 
     res.status(200).json({
       success: true,
-      data: profile ? mapUserProfileToResponse(profile) : defaultUserProfile,
+      data: mapUserProfileToResponse(profile),
     });
   } catch (_error) {
     next(createAppError(500, "FETCH_FAILED", "Failed to load profile. Retry."));
@@ -108,12 +126,17 @@ const getProfile = async (_req, res, next) => {
 const saveProfile = async (req, res, next) => {
   try {
     const update = validateProfilePayload(req.body);
-    const profile = await UserProfile.findOneAndUpdate(profileFilter, update, {
+    update.userId = req.user._id;
+
+    const profile = await UserProfile.findOneAndUpdate(getProfileFilter(req), update, {
       new: true,
       runValidators: true,
       setDefaultsOnInsert: true,
       upsert: true,
     });
+
+    const { User } = require("../models/User");
+    await User.findByIdAndUpdate(req.user._id, { has_completed_profile: true });
 
     res.status(200).json({
       success: true,
@@ -146,19 +169,19 @@ const suggestMeals = async (req, res, next) => {
 
 const generateDietPlan = async (req, res, next) => {
   try {
-    let profile = await UserProfile.findOne(profileFilter).lean();
+    let profile = await UserProfile.findOne(getProfileFilter(req)).lean();
     if (!profile) {
       const defaultData = {
+        userId: req.user._id,
         activity_level: "Moderately Active",
         age: 30,
         dietary_restrictions: ["Vegetarian", "Gluten-Free"],
-        email: "sarah.johnson@email.com",
+        email: req.user.email,
         food_allergies: ["Shellfish"],
         gender: "Female",
         height_cm: 165,
         diet_mode: "Balanced",
-        name: "Sarah Johnson",
-        profile_key: "primary",
+        name: req.user.name,
         weight_kg: 62,
       };
       const created = await UserProfile.create(defaultData);
@@ -175,7 +198,7 @@ const generateDietPlan = async (req, res, next) => {
     const dietPlan = await generatePersonalizedDietPlan(profile, mapped);
     
     // Save to DB
-    await UserProfile.findOneAndUpdate(profileFilter, { diet_plan: dietPlan });
+    await UserProfile.findOneAndUpdate(getProfileFilter(req), { diet_plan: dietPlan });
     
     res.status(200).json({ success: true, data: dietPlan });
   } catch (error) {
@@ -190,7 +213,7 @@ const { getImageUrl } = require("../utils/urlHelper");
 
 const getProgressLogs = async (req, res, next) => {
   try {
-    const logs = await ProgressLog.find({}).sort({ created_at: -1 }).lean();
+    const logs = await ProgressLog.find({ userId: req.user._id }).sort({ created_at: -1 }).lean();
     const mappedLogs = logs.map((log) => {
       let imageUrl = log.image_url;
       if (imageUrl) {
@@ -231,6 +254,7 @@ const addProgressLog = async (req, res, next) => {
     }
 
     const newLog = await ProgressLog.create({
+      userId: req.user._id,
       date,
       weight_kg: weightNum,
       body_fat_pct: bodyFatNum,
@@ -241,14 +265,14 @@ const addProgressLog = async (req, res, next) => {
 
     // Automatically update the user's master profile weight
     await UserProfile.findOneAndUpdate(
-      profileFilter,
+      getProfileFilter(req),
       { weight_kg: weightNum },
       { upsert: true }
     );
 
     // Award XP
     const { awardXP } = require("../services/gamificationService");
-    await awardXP(null, "LOG_PROGRESS");
+    await awardXP(req.user._id, "LOG_PROGRESS");
 
     res.status(200).json({ success: true, data: newLog });
   } catch (error) {
@@ -258,7 +282,7 @@ const addProgressLog = async (req, res, next) => {
 
 const generateGroceryListHandler = async (req, res, next) => {
   try {
-    const profile = await UserProfile.findOne(profileFilter).lean();
+    const profile = await UserProfile.findOne(getProfileFilter(req)).lean();
     
     // If no custom diet plan exists, fall back to the default diet plan structure to generate the grocery list
     const dietPlanToUse = (profile && profile.diet_plan && profile.diet_plan.length > 0)
@@ -297,7 +321,7 @@ const getPantryRecipes = async (req, res, next) => {
       return next(createAppError(400, "INVALID_DATA", "Ingredients array is required."));
     }
 
-    const profile = await UserProfile.findOne(profileFilter).lean();
+    const profile = await UserProfile.findOne(getProfileFilter(req)).lean();
     const { generateRecipesFromIngredients } = require("../services/geminiAnalysisService");
     const recipes = await generateRecipesFromIngredients(ingredients, profile || {});
 
@@ -408,7 +432,7 @@ const getWeekDates = () => {
 
 const getDashboardStats = async (req, res, next) => {
   try {
-    const profile = await UserProfile.findOne(profileFilter).lean();
+    const profile = await UserProfile.findOne(getProfileFilter(req)).lean();
     const mappedProfile = profile ? mapUserProfileToResponse(profile) : defaultUserProfile;
     
     const workoutIntensity = mappedProfile.workoutIntensity || "moderate";
@@ -420,7 +444,7 @@ const getDashboardStats = async (req, res, next) => {
     };
     const waterGoal = HYDRATION_GOALS[workoutIntensity] || 2500;
 
-    const foodEntries = await FoodEntry.find({}).lean();
+    const foodEntries = await FoodEntry.find({ userId: req.user._id }).lean();
     const datesArray = foodEntries.map(e => {
       const d = new Date(e.created_at || e.createdAt);
       return d.toISOString().split("T")[0];
@@ -444,7 +468,7 @@ const getDashboardStats = async (req, res, next) => {
     const consistencyScore = Math.round((loggedDaysCount / 7) * 100);
 
     const todayStr = new Date().toISOString().split("T")[0];
-    const waterEntries = await DailyWater.find({}).lean();
+    const waterEntries = await DailyWater.find({ userId: req.user._id }).lean();
     
     const todayWaterEntry = waterEntries.find(w => w.date === todayStr);
     const hydrationML = todayWaterEntry ? todayWaterEntry.water_intake_ml : 0;
@@ -490,7 +514,7 @@ const updateWorkoutIntensity = async (req, res, next) => {
     const waterGoal = HYDRATION_GOALS[intensity];
 
     const profile = await UserProfile.findOneAndUpdate(
-      profileFilter,
+      getProfileFilter(req),
       { workout_intensity: intensity, water_goal_ml: waterGoal },
       { new: true, upsert: true }
     );
@@ -512,19 +536,19 @@ const modifyDietPlanMeal = async (req, res, next) => {
       return next(createAppError(400, "INVALID_DATA", "day, mealIndex, and prompt are required."));
     }
 
-    let profile = await UserProfile.findOne(profileFilter);
+    let profile = await UserProfile.findOne(getProfileFilter(req));
     if (!profile) {
       const defaultData = {
+        userId: req.user._id,
         activity_level: "Moderately Active",
         age: 30,
         dietary_restrictions: ["Vegetarian", "Gluten-Free"],
-        email: "sarah.johnson@email.com",
+        email: req.user.email,
         food_allergies: ["Shellfish"],
         gender: "Female",
         height_cm: 165,
         diet_mode: "Balanced",
-        name: "Sarah Johnson",
-        profile_key: "primary",
+        name: req.user.name,
         weight_kg: 62,
       };
       profile = await UserProfile.create(defaultData);

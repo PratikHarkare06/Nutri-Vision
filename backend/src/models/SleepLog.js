@@ -2,10 +2,14 @@ const mongoose = require("mongoose");
 
 const sleepLogSchema = new mongoose.Schema(
   {
+    userId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
     date: {
       type: String, // YYYY-MM-DD
       required: true,
-      unique: true,
       index: true,
     },
     duration_hours: {
@@ -43,6 +47,8 @@ const sleepLogSchema = new mongoose.Schema(
     versionKey: false,
   }
 );
+
+sleepLogSchema.index({ userId: 1, date: 1 }, { unique: true });
 
 const SleepLog = mongoose.models.SleepLog || mongoose.model("SleepLog", sleepLogSchema);
 

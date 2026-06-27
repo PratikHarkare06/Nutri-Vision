@@ -83,10 +83,10 @@ const userProfileSchema = new mongoose.Schema(
       trim: true,
       type: String,
     },
-    profile_key: {
-      default: "primary",
-      trim: true,
-      type: String,
+    userId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
       unique: true,
     },
     weight_kg: {

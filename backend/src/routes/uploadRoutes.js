@@ -5,14 +5,15 @@ const { uploadImage: uploadImageMiddleware } = require("../config/multer");
 const { uploadImage, correctIngredient, scanBarcode, analyzePantryImage, analyzeReceiptImage } = require("../controllers/uploadController");
 const { parseVoiceLog } = require("../controllers/voiceLogController");
 const { handleChat } = require("../controllers/chatController");
+const { protect, optionalProtect } = require("../middleware/authMiddleware");
 
 const { addClient } = require("../utils/progressTracker");
 
 const router = express.Router();
 
-router.get("/history", getHistory);
-router.get("/profile", getProfile);
-router.post("/profile", saveProfile);
+router.get("/history", protect, getHistory);
+router.get("/profile", protect, getProfile);
+router.post("/profile", protect, saveProfile);
 
 router.get("/upload/progress/:id", (req, res) => {
   res.writeHead(200, {
@@ -24,12 +25,12 @@ router.get("/upload/progress/:id", (req, res) => {
   addClient(req.params.id, res);
 });
 
-router.post("/upload/correct", correctIngredient);
-router.post("/upload/barcode", scanBarcode);
-router.post("/upload/pantry", uploadImageMiddleware, analyzePantryImage);
-router.post("/upload/receipt", uploadImageMiddleware, analyzeReceiptImage);
-router.post("/upload/voice-log", parseVoiceLog);
-router.post("/upload", uploadImageMiddleware, uploadImage);
-router.post("/chat", handleChat);
+router.post("/upload/correct", optionalProtect, correctIngredient);
+router.post("/upload/barcode", optionalProtect, scanBarcode);
+router.post("/upload/pantry", optionalProtect, uploadImageMiddleware, analyzePantryImage);
+router.post("/upload/receipt", optionalProtect, uploadImageMiddleware, analyzeReceiptImage);
+router.post("/upload/voice-log", optionalProtect, parseVoiceLog);
+router.post("/upload", optionalProtect, uploadImageMiddleware, uploadImage);
+router.post("/chat", optionalProtect, handleChat);
 
 module.exports = router;

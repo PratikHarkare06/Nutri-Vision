@@ -7,6 +7,7 @@ const historyRoutes = require("./routes/historyRoutes");
 const profileRoutes = require("./routes/profileRoutes");
 const workoutRoutes = require("./routes/workoutRoutes");
 const sleepRoutes = require("./routes/sleepRoutes");
+const authRoutes = require("./routes/authRoutes");
 const { errorHandler } = require("./middleware/errorHandler");
 
 const app = express();
@@ -25,6 +26,7 @@ app.use(
 app.use(express.json());
 app.use("/uploads", express.static(uploadsDirectory));
 
+app.use("/api/auth", authRoutes);
 app.use("/api", uploadRoutes);
 app.use("/api/history", historyRoutes);
 app.use("/api/profile", profileRoutes);

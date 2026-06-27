@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from "react";
+import { useAuthStore } from "../store/authStore";
 import { UploadCard } from "../components/UploadCard";
 import { useUploadStore } from "../store/uploadStore";
 import { Area, AreaChart, ResponsiveContainer, XAxis, Tooltip } from "recharts";
@@ -36,6 +37,7 @@ const CustomTooltip = ({ active, payload }: any) => {
 };
 
 export const DashboardPage = ({ onUploadSuccess, onNavigate }: DashboardPageProps) => {
+  const { isAuthenticated, user } = useAuthStore();
   const cancelUpload = useUploadStore((state) => state.cancelUpload);
   const clearError = useUploadStore((state) => state.clearError);
   const dragActive = useUploadStore((state) => state.dragActive);
@@ -80,6 +82,7 @@ export const DashboardPage = ({ onUploadSuccess, onNavigate }: DashboardPageProp
   const waterGoal = HYDRATION_GOALS[workoutIntensity];
 
   const loadDashboardStats = async () => {
+    if (!isAuthenticated) return;
     try {
       const res = await fetchDashboardStatsRequest();
       if (res.success) {
@@ -109,8 +112,19 @@ export const DashboardPage = ({ onUploadSuccess, onNavigate }: DashboardPageProp
   };
 
   useEffect(() => {
-    loadDashboardStats();
-  }, []);
+    if (isAuthenticated) {
+      loadDashboardStats();
+    } else {
+      // Clear stats for Guest mode
+      setHydrationML(0);
+      setWorkoutIntensity("moderate");
+      setHydrationStreak(0);
+      setMealStreak(0);
+      setConsistencyScore(0);
+      setWeeklyHydration([0,0,0,0,0,0,0]);
+      setMealLogsWeek([false,false,false,false,false,false,false]);
+    }
+  }, [isAuthenticated]);
 
   const getTimeSegments = (totalMl: number, goal: number) => {
     const now = new Date();
@@ -329,6 +343,11 @@ export const DashboardPage = ({ onUploadSuccess, onNavigate }: DashboardPageProp
   };
 
   const handleAddWater = async (amount: number) => {
+    if (!isAuthenticated) {
+      alert("Sign in to track water and personalize goals!");
+      onNavigate?.("/auth");
+      return;
+    }
     try {
       const res = await addWaterRequest(amount);
       if (res.success) {
@@ -340,6 +359,11 @@ export const DashboardPage = ({ onUploadSuccess, onNavigate }: DashboardPageProp
   };
 
   const handleSubtractWater = async () => {
+    if (!isAuthenticated) {
+      alert("Sign in to track water and personalize goals!");
+      onNavigate?.("/auth");
+      return;
+    }
     try {
       const res = await addWaterRequest(-250);
       if (res.success) {
@@ -351,6 +375,11 @@ export const DashboardPage = ({ onUploadSuccess, onNavigate }: DashboardPageProp
   };
 
   const handleIntensityChange = async (intensity: "rest" | "light" | "moderate" | "intense") => {
+    if (!isAuthenticated) {
+      alert("Sign in to update workout intensity and personalize goals!");
+      onNavigate?.("/auth");
+      return;
+    }
     setWorkoutIntensity(intensity);
     try {
       const res = await updateWorkoutIntensityRequest(intensity);
@@ -358,7 +387,6 @@ export const DashboardPage = ({ onUploadSuccess, onNavigate }: DashboardPageProp
         await loadDashboardStats();
       }
     } catch (err) {
-      console.error("Failed to update workout intensity", err);
     }
   };
 
@@ -369,8 +397,14 @@ export const DashboardPage = ({ onUploadSuccess, onNavigate }: DashboardPageProp
       {/* Top Header */}
       <header className="px-4 sm:px-8 pt-8 pb-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between max-w-6xl mx-auto w-full">
         <div>
-          <h1 className="text-3xl font-bold text-textHeading tracking-tight">Welcome back, Alex</h1>
-          <p className="text-textMuted text-sm mt-1">You've reached 85% of your protein goal today.</p>
+          <h1 className="text-3xl font-bold text-textHeading tracking-tight">
+            {isAuthenticated && user ? `Welcome back, ${user.name}` : "Welcome to Nutrixa"}
+          </h1>
+          <p className="text-textMuted text-sm mt-1">
+            {isAuthenticated && user 
+              ? "Keep tracking your daily nutrition to reach your goals." 
+              : "Try our AI Food Calorie Scanner below to analyze meals instantly!"}
+          </p>
         </div>
         <div className="flex items-center gap-3 relative self-start sm:self-auto">
           {/* Header Action Buttons */}

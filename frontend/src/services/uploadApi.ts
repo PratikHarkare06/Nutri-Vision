@@ -1,11 +1,6 @@
-import axios, { AxiosError } from "axios";
+import { apiClient as api } from "./apiClient";
+import { AxiosError } from "axios";
 import type { ApiErrorResponse, UploadSuccessResponse } from "../types";
-import { API_BASE_URL } from "./apiConfig";
-
-const api = axios.create({
-  baseURL: API_BASE_URL,
-  timeout: 90000, // 90s — allows for Render cold starts + AI image analysis
-});
 
 export const uploadImageRequest = async (
   file: File,

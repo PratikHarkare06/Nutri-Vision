@@ -1,4 +1,5 @@
 import React, { useEffect } from "react";
+import { useAuthStore } from "../store/authStore";
 
 interface SidebarProps {
   currentPath: string;
@@ -86,6 +87,7 @@ const getNavItems = (currentPath: string) => {
 };
 
 export const Sidebar: React.FC<SidebarProps> = ({ currentPath, onNavigate, isOpen = false, onClose }) => {
+  const { user, isAuthenticated, logout } = useAuthStore();
   const isActive = (path: string) => {
     if (path === "/" && currentPath === "/") return true;
     if (path !== "/" && currentPath === path) return true;
@@ -459,6 +461,42 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentPath, onNavigate, isOpe
 
         {/* Dynamic Streak/Report/Pro Widget */}
         {renderSidebarWidget()}
+
+        {/* User Profile / Auth Action */}
+        <div className="border-t border-border px-4 py-4 bg-[#F8F9FA]/50">
+          {isAuthenticated && user ? (
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5 overflow-hidden">
+                <div className="w-9 h-9 rounded-full bg-[#7A9E7E] flex items-center justify-center text-white font-black text-sm shrink-0">
+                  {user.name.charAt(0).toUpperCase()}
+                </div>
+                <div className="overflow-hidden">
+                  <h4 className="text-xs font-bold text-textHeading truncate">{user.name}</h4>
+                  <p className="text-[9px] text-[#7A7A7A] truncate">{user.email}</p>
+                </div>
+              </div>
+              <button
+                onClick={logout}
+                title="Log Out"
+                className="w-8 h-8 rounded-lg hover:bg-red-50 hover:text-red-500 text-textMuted flex items-center justify-center transition-all shrink-0"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15M12 9l-3 3m0 0 3 3m-3-3h12.75" />
+                </svg>
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => handleNavigate("/auth")}
+              className="w-full py-2.5 bg-[#7A9E7E] hover:bg-[#68876c] text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-1.5"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.2} stroke="currentColor" className="w-4 h-4">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
+              </svg>
+              Sign In
+            </button>
+          )}
+        </div>
       </aside>
     </>
   );

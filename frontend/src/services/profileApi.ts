@@ -1,11 +1,6 @@
-import axios, { AxiosError } from "axios";
+import { apiClient as profileApi } from "./apiClient";
+import { AxiosError } from "axios";
 import type { ApiErrorResponse, ProfileSuccessResponse, UserProfile, ProgressLog, GroceryCategory, PantryRecipe, SleepLog, DailyDietPlan } from "../types";
-import { API_BASE_URL } from "./apiConfig";
-
-const profileApi = axios.create({
-  baseURL: API_BASE_URL,
-  timeout: 120000, // 120s — allows for LLM generation and Nvidia NIM analysis
-});
 
 const getApiErrorMessage = (error: unknown, fallbackMessage: string) => {
   const axiosError = error as AxiosError<ApiErrorResponse>;

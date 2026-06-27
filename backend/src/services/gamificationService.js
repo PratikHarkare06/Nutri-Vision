@@ -15,7 +15,8 @@ const BADGES = {
 
 const awardXP = async (userId, action, value = 0) => {
   try {
-    const profile = await UserProfile.findOne({ profile_key: "primary" });
+    if (!userId) return; // Do not award XP if no user is authenticated
+    const profile = await UserProfile.findOne({ userId });
     if (!profile) return;
 
     let xpGain = 0;
@@ -56,7 +57,7 @@ const awardXP = async (userId, action, value = 0) => {
       const uniqueBadges = [...new Set([...profile.unlocked_badges, ...newBadges])];
 
       await UserProfile.findOneAndUpdate(
-        { profile_key: "primary" },
+        { userId },
         { 
           xp: newXp, 
           level: newLevel,

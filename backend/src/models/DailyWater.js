@@ -2,6 +2,11 @@ const mongoose = require("mongoose");
 
 const dailyWaterSchema = new mongoose.Schema(
   {
+    userId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
     date: {
       type: String, // YYYY-MM-DD
       required: true,
@@ -22,8 +27,8 @@ const dailyWaterSchema = new mongoose.Schema(
   }
 );
 
-// Ensure only one entry per day
-dailyWaterSchema.index({ date: 1 }, { unique: true });
+// Ensure only one entry per day per user
+dailyWaterSchema.index({ userId: 1, date: 1 }, { unique: true });
 
 const DailyWater = mongoose.models.DailyWater || mongoose.model("DailyWater", dailyWaterSchema);
 

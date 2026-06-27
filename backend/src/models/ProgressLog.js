@@ -2,6 +2,11 @@ const mongoose = require("mongoose");
 
 const progressLogSchema = new mongoose.Schema(
   {
+    userId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
     date: {
       type: String, // YYYY-MM-DD
       required: true,

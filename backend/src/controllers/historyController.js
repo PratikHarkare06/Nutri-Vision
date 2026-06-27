@@ -11,14 +11,13 @@ const getHistory = async (req, res, next) => {
     const search = typeof req.query.search === "string" ? req.query.search.trim() : "";
     const sort = req.query.sort === "asc" ? "asc" : "desc";
 
-    const query = search
-      ? {
-          "foods.name": {
-            $options: "i",
-            $regex: search,
-          },
-        }
-      : {};
+    const query = { userId: req.user._id };
+    if (search) {
+      query["foods.name"] = {
+        $options: "i",
+        $regex: search,
+      };
+    }
 
     const total = await FoodEntry.countDocuments(query);
     const historyEntries = await FoodEntry.find(query)
@@ -44,7 +43,7 @@ const getHistory = async (req, res, next) => {
 const getDailyWater = async (req, res, next) => {
   try {
     const today = new Date().toISOString().split("T")[0];
-    const entry = await DailyWater.findOne({ date: today }).lean();
+    const entry = await DailyWater.findOne({ date: today, userId: req.user._id }).lean();
     
     res.status(200).json({
       success: true,
@@ -67,14 +66,14 @@ const addWater = async (req, res, next) => {
 
     const today = new Date().toISOString().split("T")[0];
     let entry = await DailyWater.findOneAndUpdate(
-      { date: today },
-      { $inc: { water_intake_ml: amount_ml } },
+      { date: today, userId: req.user._id },
+      { $inc: { water_intake_ml: amount_ml }, $setOnInsert: { userId: req.user._id } },
       { new: true, upsert: true }
     );
 
     if (entry.water_intake_ml < 0) {
       entry = await DailyWater.findOneAndUpdate(
-        { date: today },
+        { date: today, userId: req.user._id },
         { $set: { water_intake_ml: 0 } },
         { new: true }
       );
@@ -84,7 +83,7 @@ const addWater = async (req, res, next) => {
     await awardXP(null, "LOG_WATER", amount_ml);
 
     // Check if goal reached
-    const profile = await UserProfile.findOne({ profile_key: "primary" }).lean();
+    const profile = await UserProfile.findOne({ userId: req.user._id }).lean();
     if (profile && entry.water_intake_ml >= profile.water_goal_ml && (entry.water_intake_ml - amount_ml) < profile.water_goal_ml) {
       await awardXP(null, "GOAL_REACHED_WATER");
     }

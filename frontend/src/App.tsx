@@ -13,11 +13,22 @@ import { PWAInstallBanner } from "./components/PWAInstallBanner";
 import { ChatAssistant } from "./components/ChatAssistant";
 import { ToastProvider } from "./components/Toast";
 
+// Authentication & Onboarding
+import { useAuthStore } from "./store/authStore";
+import AuthPage from "./pages/AuthPage";
+import OnboardingWizard from "./components/OnboardingWizard";
+
 const getPathname = () => window.location.pathname || "/";
 
 function App() {
   const [pathname, setPathname] = useState(getPathname());
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  const { checkAuth, isAuthenticated, user, isLoading } = useAuthStore();
+
+  useEffect(() => {
+    checkAuth();
+  }, []);
 
   useEffect(() => {
     const handlePopState = () => setPathname(getPathname());
@@ -33,6 +44,33 @@ function App() {
     window.history.pushState({}, "", nextPath);
     setPathname(nextPath);
   };
+
+  // ── Route Guards ──
+  const isGuestAllowedPath = pathname === "/" || pathname === "/results" || pathname === "/auth";
+
+  // Redirect to Auth if trying to access gated feature as a guest
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated && !isGuestAllowedPath) {
+      navigate("/auth");
+    }
+  }, [pathname, isAuthenticated, isLoading]);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen w-full flex flex-col items-center justify-center bg-[#F8F9FA]">
+        <span className="w-8 h-8 border-4 border-[#7A9E7E]/30 border-t-[#7A9E7E] rounded-full animate-spin mb-4" />
+        <p className="text-sm font-bold text-textHeading">Loading health data...</p>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated && !isGuestAllowedPath) {
+    return <AuthPage navigate={navigate} />;
+  }
+
+  if (pathname === "/auth") {
+    return <AuthPage navigate={navigate} />;
+  }
 
   return (
     <ToastProvider>
@@ -86,6 +124,11 @@ function App() {
 
         <PWAInstallBanner />
         <ChatAssistant />
+
+        {/* ── Onboarding Wizard overlay ── */}
+        {isAuthenticated && user && !user.hasCompletedProfile && (
+          <OnboardingWizard onComplete={() => navigate("/")} />
+        )}
       </div>
     </ToastProvider>
   );

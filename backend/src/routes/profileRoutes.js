@@ -16,7 +16,11 @@ const {
 const { generateZeroWasteRecipe } = require("../controllers/zeroWasteController");
 const { uploadImage: uploadImageMiddleware } = require("../config/multer");
 
+const { protect } = require("../middleware/authMiddleware");
+
 const router = express.Router();
+
+router.use(protect);
 
 router.get("/", getProfile);
 router.post("/", saveProfile);

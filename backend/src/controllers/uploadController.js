@@ -23,28 +23,51 @@ const uploadImage = async (req, res, next) => {
       userMealType, 
       uploadId
     );
-    const savedEntry = await FoodEntry.create({
-      calories: analysis.macros.calories,
-      carbs: analysis.macros.carbs,
-      fat: analysis.macros.fat,
-      fiber: analysis.macros.fiber,
-      foods: analysis.foods,
-      image_url: analysis.imageUrl,
-      protein: analysis.macros.protein,
-      volume: analysis.volume,
-      weight: analysis.weight,
-      ingredients_macros: analysis.ingredients_macros,
-      meal_type: analysis.mealType,
-      meal_category: analysis.mealCategory,
-      volume_source: analysis.volumeSource,
-    });
+    let responseData;
+    if (req.user) {
+      const savedEntry = await FoodEntry.create({
+        userId: req.user._id,
+        calories: analysis.macros.calories,
+        carbs: analysis.macros.carbs,
+        fat: analysis.macros.fat,
+        fiber: analysis.macros.fiber,
+        foods: analysis.foods,
+        image_url: analysis.imageUrl,
+        protein: analysis.macros.protein,
+        volume: analysis.volume,
+        weight: analysis.weight,
+        ingredients_macros: analysis.ingredients_macros,
+        meal_type: analysis.mealType,
+        meal_category: analysis.mealCategory,
+        volume_source: analysis.volumeSource,
+      });
 
-    // Gamification
-    await awardXP(null, "LOG_MEAL");
+      // Gamification
+      await awardXP(req.user._id, "LOG_MEAL");
+      responseData = mapFoodEntryToAnalysis(savedEntry, req);
+    } else {
+      // Guest mode - construct temp entry
+      const tempEntry = {
+        calories: analysis.macros.calories,
+        carbs: analysis.macros.carbs,
+        fat: analysis.macros.fat,
+        fiber: analysis.macros.fiber,
+        foods: analysis.foods,
+        image_url: analysis.imageUrl,
+        protein: analysis.macros.protein,
+        volume: analysis.volume,
+        weight: analysis.weight,
+        ingredients_macros: analysis.ingredients_macros,
+        mealType: analysis.mealType,
+        mealCategory: analysis.mealCategory,
+        volumeSource: analysis.volumeSource,
+      };
+      responseData = mapFoodEntryToAnalysis(tempEntry, req);
+    }
 
     res.status(200).json({
       success: true,
-      data: mapFoodEntryToAnalysis(savedEntry, req),
+      data: responseData,
     });
   } catch (error) {
     if (error.message?.includes("FATSECRET_CONFIG_ERROR")) {
@@ -204,7 +227,8 @@ const scanBarcode = async (req, res, next) => {
       portionFiber: Math.round(portionFiber)
     });
 
-    const savedEntry = await FoodEntry.create({
+    let responseData;
+    const tempEntry = {
       calories: Math.round(portionCalories),
       carbs: Math.round(portionCarbs),
       fat: Math.round(portionFat),
@@ -218,15 +242,23 @@ const scanBarcode = async (req, res, next) => {
       meal_type: "Snack",
       meal_category: "Packaged",
       volume_source: "barcode",
-    });
+    };
 
-    // Gamification
-    await awardXP(null, "LOG_MEAL");
+    if (req.user) {
+      tempEntry.userId = req.user._id;
+      const savedEntry = await FoodEntry.create(tempEntry);
+      
+      // Gamification
+      await awardXP(req.user._id, "LOG_MEAL");
+      responseData = mapFoodEntryToAnalysis(savedEntry, req);
+    } else {
+      responseData = mapFoodEntryToAnalysis(tempEntry, req);
+    }
 
     res.status(200).json({
       success: true,
       message: `Scanned: ${fullName}`,
-      data: mapFoodEntryToAnalysis(savedEntry, req),
+      data: responseData,
     });
 
   } catch (error) {
