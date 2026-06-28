@@ -1,11 +1,14 @@
+// authRoutes.js — Firebase-compatible auth endpoints
 const express = require("express");
-const { register, login, getMe } = require("../controllers/authController");
+const { syncFirebaseUser, getMe } = require("../controllers/authController");
 const { protect } = require("../middleware/authMiddleware");
 
 const router = express.Router();
 
-router.post("/register", register);
-router.post("/login", login);
+// POST /api/auth/sync — called after Firebase sign-in to upsert user in MongoDB
+router.post("/sync", syncFirebaseUser);
+
+// GET /api/auth/me — returns current authenticated user info
 router.get("/me", protect, getMe);
 
 module.exports = router;

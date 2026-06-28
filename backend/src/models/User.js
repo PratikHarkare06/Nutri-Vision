@@ -1,8 +1,16 @@
+// User.js — Supports both Firebase UID-based auth and legacy email/password
 const mongoose = require("mongoose");
 const bcrypt = require("bcrypt");
 
 const userSchema = new mongoose.Schema(
   {
+    // Firebase UID — primary identifier when using Firebase Auth
+    firebaseUid: {
+      type: String,
+      unique: true,
+      sparse: true, // allows null for legacy users
+      trim: true,
+    },
     name: {
       type: String,
       required: true,
@@ -15,13 +23,19 @@ const userSchema = new mongoose.Schema(
       lowercase: true,
       trim: true,
     },
+    // Optional for Firebase users (they authenticate via Firebase, not bcrypt)
     password: {
       type: String,
-      required: true,
     },
     has_completed_profile: {
       type: Boolean,
       default: false,
+    },
+    // Provider: "firebase" or "local"
+    provider: {
+      type: String,
+      default: "local",
+      enum: ["local", "firebase"],
     },
   },
   {
@@ -33,9 +47,9 @@ const userSchema = new mongoose.Schema(
   }
 );
 
-// Encrypt password before saving
+// Encrypt password before saving (only for local users)
 userSchema.pre("save", async function (next) {
-  if (!this.isModified("password")) return next();
+  if (!this.isModified("password") || !this.password) return next();
   try {
     const salt = await bcrypt.genSalt(10);
     this.password = await bcrypt.hash(this.password, salt);
@@ -45,8 +59,9 @@ userSchema.pre("save", async function (next) {
   }
 });
 
-// Compare password
+// Compare password (local auth only)
 userSchema.methods.comparePassword = async function (candidatePassword) {
+  if (!this.password) return false;
   return bcrypt.compare(candidatePassword, this.password);
 };
 

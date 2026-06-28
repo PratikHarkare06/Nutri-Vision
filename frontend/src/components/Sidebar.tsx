@@ -476,7 +476,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentPath, onNavigate, isOpe
                 </div>
               </div>
               <button
-                onClick={logout}
+                onClick={() => logout()}
                 title="Log Out"
                 className="w-8 h-8 rounded-lg hover:bg-red-50 hover:text-red-500 text-textMuted flex items-center justify-center transition-all shrink-0"
               >

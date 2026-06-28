@@ -24,10 +24,10 @@ function App() {
   const [pathname, setPathname] = useState(getPathname());
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  const { checkAuth, isAuthenticated, user, isLoading } = useAuthStore();
+  const { initAuth, isAuthenticated, user, isLoading } = useAuthStore();
 
   useEffect(() => {
-    checkAuth();
+    initAuth();
   }, []);
 
   useEffect(() => {
