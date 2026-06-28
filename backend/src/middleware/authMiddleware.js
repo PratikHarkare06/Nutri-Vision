@@ -11,6 +11,9 @@ const extractToken = (req) => {
 };
 
 const resolveUserFromFirebaseToken = async (token) => {
+  if (!admin.apps || admin.apps.length === 0) {
+    throw new Error("Firebase Admin SDK is not initialized.");
+  }
   const decoded = await admin.auth().verifyIdToken(token);
   // Find user in MongoDB by Firebase UID
   let user = await User.findOne({ firebaseUid: decoded.uid }).select("-password");
