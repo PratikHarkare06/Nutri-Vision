@@ -782,53 +782,86 @@ export const DashboardPage = ({ onUploadSuccess, onNavigate }: DashboardPageProp
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Meal Card 1 */}
-              <div className="bg-white border border-border rounded-2xl overflow-hidden card-hover transition-all">
-                <img 
-                  src="https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=600&auto=format&fit=crop&q=80" 
-                  alt="Quinoa Power Bowl" 
-                  className="w-full h-40 object-cover"
-                />
-                <div className="p-4">
-                  <div className="flex justify-between items-start mb-1">
-                    <h3 className="font-bold text-textHeading text-base">Quinoa Power Bowl</h3>
-                    <span className="px-2 py-0.5 rounded-md bg-[#EBF2EB] text-[#2C3E2B] text-[10px] font-bold">Lunch</span>
+              {/* Render logged meals */}
+              {todayMeals.map((meal: any) => {
+                const timeStr = new Date(meal.createdAt).toLocaleTimeString("en-US", {
+                  hour: "2-digit",
+                  minute: "2-digit"
+                });
+                return (
+                  <div key={meal._id || meal.id} className="bg-white border border-border rounded-2xl overflow-hidden card-hover transition-all flex flex-col justify-between">
+                    <img 
+                      src={meal.imageUrl || "https://images.unsplash.com/photo-1498837167922-ddd27525d352?w=600&auto=format&fit=crop&q=80"} 
+                      alt={meal.foods?.[0]?.name || meal.name || "Logged Meal"} 
+                      className="w-full h-40 object-cover"
+                    />
+                    <div className="p-4 flex-1 flex flex-col justify-between">
+                      <div>
+                        <div className="flex justify-between items-start mb-1 gap-2">
+                          <h3 className="font-bold text-textHeading text-sm line-clamp-1">
+                            {meal.foods?.[0]?.name || meal.name || "Logged Meal"}
+                          </h3>
+                          <span className={`px-2 py-0.5 rounded-md text-[9px] font-bold uppercase shrink-0 ${
+                            meal.mealType?.toLowerCase() === "breakfast" ? "bg-[#FEF0EB] text-[#E8815A]" :
+                            meal.mealType?.toLowerCase() === "lunch" ? "bg-[#EBF2EB] text-[#2C3E2B]" :
+                            meal.mealType?.toLowerCase() === "dinner" ? "bg-[#EBF2F8] text-[#2C3EBE]" :
+                            "bg-[#FEF9EB] text-[#D4A847]"
+                          }`}>
+                            {meal.mealType || "Meal"}
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-[#888888] mb-3">{timeStr}</p>
+                      </div>
+                      <div className="flex items-center gap-4 text-xs font-semibold pt-2 border-t border-[#F5F5F0]">
+                        <span className="flex items-center gap-1 text-orange-600">
+                          <FireIcon className="w-3.5 h-3.5" /> {Math.round(meal.macros?.calories || 0)} kcal
+                        </span>
+                        <span className="flex items-center gap-1 text-[#7A9E7E]">
+                          <span className="w-1.5 h-1.5 rounded-full bg-[#7A9E7E] inline-block"></span> {Math.round(meal.macros?.protein || 0)}g P
+                        </span>
+                        <span className="text-[10px] text-textMuted ml-auto">Logged</span>
+                      </div>
+                    </div>
                   </div>
-                  <p className="text-xs text-textMuted mb-3">12:30 PM</p>
-                  <div className="flex items-center gap-4 text-xs font-semibold">
-                    <span className="flex items-center gap-1 text-orange-600">
-                      <FireIcon className="w-4 h-4" /> 480 kcal
-                    </span>
-                    <span className="flex items-center gap-1 text-[#7A9E7E]">
-                      <span className="w-2 h-2 rounded-full bg-[#7A9E7E] inline-block"></span> 22 g
-                    </span>
-                  </div>
-                </div>
-              </div>
+                );
+              })}
 
-              {/* Meal Card 2 */}
-              <div className="bg-white border border-border rounded-2xl overflow-hidden card-hover transition-all">
-                <img 
-                  src="https://images.unsplash.com/photo-1488477181946-6428a0291777?w=600&auto=format&fit=crop&q=80" 
-                  alt="Greek Yogurt & Berries" 
-                  className="w-full h-40 object-cover"
-                />
-                <div className="p-4">
-                  <div className="flex justify-between items-start mb-1">
-                    <h3 className="font-bold text-textHeading text-base">Greek Yogurt &amp; Berries</h3>
-                    <span className="px-2 py-0.5 rounded-md bg-[#FEF0EB] text-[#E8815A] text-[10px] font-bold">Breakfast</span>
-                  </div>
-                  <p className="text-xs text-textMuted mb-3">09:15 AM</p>
-                  <div className="flex items-center gap-4 text-xs font-semibold">
-                    <span className="flex items-center gap-1 text-orange-600">
-                      <FireIcon className="w-4 h-4" /> 310 kcal
-                    </span>
-                    <span className="flex items-center gap-1 text-[#7A9E7E]">
-                      <span className="w-2 h-2 rounded-full bg-[#7A9E7E] inline-block"></span> 18 g
-                    </span>
+              {/* Render AI Suggestions */}
+              {mealSuggestions.map((recipe: any) => (
+                <div key={recipe.name} className="bg-white border border-dashed border-[#9DB89F]/60 rounded-2xl overflow-hidden card-hover transition-all flex flex-col justify-between relative bg-gradient-to-br from-white to-[#F9FAF8]/40">
+                  <span className="absolute top-2.5 left-2.5 z-10 px-2 py-0.5 rounded-full bg-[#9DB89F] text-white text-[9px] font-bold uppercase tracking-wider shadow-sm">
+                    Suggested {recipe.type}
+                  </span>
+                  <img 
+                    src={recipe.image} 
+                    alt={recipe.name} 
+                    className="w-full h-40 object-cover opacity-95"
+                  />
+                  <div className="p-4 flex-1 flex flex-col justify-between">
+                    <div>
+                      <h3 className="font-bold text-textHeading text-sm line-clamp-1">{recipe.name}</h3>
+                      <p className="text-[10px] text-textMuted mt-1 mb-3">Healthy &amp; fits your remaining limit</p>
+                    </div>
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-3 text-[11px] font-semibold text-[#5C7A60] bg-[#EBF2EB]/50 rounded-xl p-2">
+                        <span className="flex items-center gap-1 text-orange-600">
+                          🔥 {recipe.calories} kcal
+                        </span>
+                        <span className="flex items-center gap-0.5">
+                          💪 {recipe.protein}g P
+                        </span>
+                        <span className="text-textMuted text-[10px] ml-auto">⏱️ {recipe.prepTime}</span>
+                      </div>
+                      <button
+                        onClick={() => setSelectedRecipe(recipe)}
+                        className="w-full py-2 bg-white hover:bg-[#EBF2EB] border border-[#9DB89F]/40 hover:border-[#9DB89F] text-[#7A9E7E] text-[10px] font-bold uppercase tracking-wider rounded-xl transition-all shadow-sm hover:shadow-md flex items-center justify-center gap-1"
+                      >
+                        <span>📖</span> View Recipe &amp; Log
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
+              ))}
             </div>
           </section>
 
@@ -1090,7 +1123,7 @@ export const DashboardPage = ({ onUploadSuccess, onNavigate }: DashboardPageProp
                     </linearGradient>
                   </defs>
                   <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fill: "#888888", fontSize: 11, fontWeight: 600 }} />
-                  <Tooltip content={<CustomTooltip />} />
+                  <Tooltip content={CustomTooltip} />
                   <Area 
                     type="monotone" 
                     dataKey="calories" 
