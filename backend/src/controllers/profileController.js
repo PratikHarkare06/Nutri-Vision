@@ -118,8 +118,9 @@ const getProfile = async (req, res, next) => {
       success: true,
       data: mapUserProfileToResponse(profile),
     });
-  } catch (_error) {
-    next(createAppError(500, "FETCH_FAILED", "Failed to load profile. Retry."));
+  } catch (error) {
+    console.error("Failed to load profile error:", error);
+    next(createAppError(500, "FETCH_FAILED", `Failed to load profile: ${error.message}`));
   }
 };
 
@@ -148,7 +149,8 @@ const saveProfile = async (req, res, next) => {
       return;
     }
 
-    next(createAppError(500, "SAVE_FAILED", "Failed to save profile. Retry."));
+    console.error("Failed to save profile error:", error);
+    next(createAppError(500, "SAVE_FAILED", `Failed to save profile: ${error.message}`));
   }
 };
 
