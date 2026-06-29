@@ -84,7 +84,8 @@ export default function OnboardingWizard({ onComplete }: OnboardingWizardProps) 
         setErrorMsg("Failed to save profile. Try again.");
       }
     } catch (err: any) {
-      setErrorMsg(err.message || "Failed to submit onboarding profile.");
+      const msg = err.response?.data?.error?.message || err.message || "Failed to submit onboarding profile.";
+      setErrorMsg(msg);
     } finally {
       setIsSubmitting(false);
     }
