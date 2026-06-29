@@ -31,9 +31,9 @@ const fetchGooglePublicKeys = async () => {
 };
 
 const verifyFirebaseIdToken = async (token) => {
-  const projectId = process.env.FIREBASE_PROJECT_ID;
+  const projectId = process.env.FIREBASE_PROJECT_ID || process.env.VITE_FIREBASE_PROJECT_ID;
   if (!projectId) {
-    throw new Error("FIREBASE_PROJECT_ID environment variable is missing.");
+    throw new Error("FIREBASE_PROJECT_ID and VITE_FIREBASE_PROJECT_ID environment variables are both missing.");
   }
 
   // 1. Decode token to extract header's key ID (kid)
@@ -66,6 +66,7 @@ const verifyFirebaseIdToken = async (token) => {
     algorithms: ["RS256"],
     audience: projectId,
     issuer: `https://securetoken.google.com/${projectId}`,
+    clockTolerance: 300, // 5 minutes clock tolerance to prevent clock-skew errors on cloud containers
   });
 
   // Verify sub is present and non-empty
