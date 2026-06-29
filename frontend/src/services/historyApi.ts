@@ -40,6 +40,19 @@ export const addWaterRequest = async (amount_ml: number): Promise<{ success: boo
   return response.data;
 };
 
+export const logCustomMealRequest = async (payload: {
+  name: string;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  mealType: string;
+  imageUrl?: string;
+}): Promise<{ success: boolean; data: any }> => {
+  const response = await historyApi.post("/history", payload);
+  return response.data;
+};
+
 export const getHistoryErrorMessage = (error: unknown): string => {
   const axiosError = error as AxiosError<ApiErrorResponse>;
 

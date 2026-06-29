@@ -5,7 +5,7 @@ import { useUploadStore } from "../store/uploadStore";
 import { Area, AreaChart, ResponsiveContainer, XAxis, Tooltip } from "recharts";
 import { SearchIcon, FireIcon, WaterIcon, CameraIcon, SpinnerIcon, CloseIcon } from "../components/icons";
 import { BarcodeScanner } from "../components/BarcodeScanner";
-import { fetchHistoryRequest, addWaterRequest } from "../services/historyApi";
+import { fetchHistoryRequest, addWaterRequest, logCustomMealRequest } from "../services/historyApi";
 import { fetchDashboardStatsRequest, updateWorkoutIntensityRequest, fetchProfileRequest, fetchProgressLogsRequest, fetchSleepLogsRequest } from "../services/profileApi";
 import { fetchWorkoutLogsRequest } from "../services/workoutApi";
 
@@ -15,6 +15,151 @@ type DashboardPageProps = {
 };
 
 // Calorie trend data is calculated dynamically below
+
+const RECIPE_SUGGESTIONS = [
+  {
+    name: "Paneer Tikka Salad",
+    type: "Dinner",
+    calories: 380,
+    protein: 24,
+    carbs: 12,
+    fat: 26,
+    prepTime: "15 mins",
+    image: "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=600&auto=format&fit=crop&q=80",
+    tags: ["Vegetarian", "Gluten-Free", "High Protein"],
+    ingredients: [
+      "200g Paneer, cubed",
+      "1 cup Bell Peppers, chopped",
+      "1/2 cup Cucumber, sliced",
+      "1 tbsp Mint Chutney",
+      "Lemon juice, salt, and chaat masala"
+    ],
+    instructions: [
+      "Toss paneer and bell peppers in salt and spices.",
+      "Pan-sear or grill paneer and peppers until lightly charred.",
+      "Combine grilled ingredients with fresh cucumber and mint chutney.",
+      "Drizzle lemon juice and serve warm."
+    ]
+  },
+  {
+    name: "Grilled Chicken & Veggies",
+    type: "Dinner",
+    calories: 420,
+    protein: 40,
+    carbs: 15,
+    fat: 14,
+    prepTime: "25 mins",
+    image: "https://images.unsplash.com/photo-1432139555190-58524dae6a55?w=600&auto=format&fit=crop&q=80",
+    tags: ["Gluten-Free", "High Protein", "Non-Vegetarian"],
+    ingredients: [
+      "150g Chicken Breast",
+      "1 cup Broccoli florets",
+      "1/2 cup Carrots, sliced",
+      "1 tbsp Olive oil",
+      "Garlic powder, herbs, salt, and pepper"
+    ],
+    instructions: [
+      "Marinate chicken with garlic powder, herbs, salt, and pepper.",
+      "Grill chicken breast in a skillet with olive oil (6-8 mins each side).",
+      "Steam broccoli and carrots.",
+      "Serve hot chicken breast alongside the steamed veggies."
+    ]
+  },
+  {
+    name: "Roasted Chickpeas & Almonds",
+    type: "Snack",
+    calories: 180,
+    protein: 8,
+    carbs: 18,
+    fat: 10,
+    prepTime: "10 mins",
+    image: "https://images.unsplash.com/photo-1629115913427-e40738f97144?w=600&auto=format&fit=crop&q=80",
+    tags: ["Vegetarian", "Vegan", "Gluten-Free"],
+    ingredients: [
+      "1/2 cup boiled Chickpeas",
+      "10-12 Almonds",
+      "1 tsp Olive oil",
+      "Pinch of turmeric, salt, and chili powder"
+    ],
+    instructions: [
+      "Pat chickpeas dry with a towel.",
+      "Toss chickpeas and almonds in olive oil and dry spices.",
+      "Pan-roast in a skillet on medium heat until crispy (approx. 8 mins).",
+      "Let cool slightly and enjoy."
+    ]
+  },
+  {
+    name: "Masala Oats",
+    type: "Breakfast",
+    calories: 250,
+    protein: 9,
+    carbs: 42,
+    fat: 5,
+    prepTime: "10 mins",
+    image: "https://images.unsplash.com/photo-1517686469429-8faf88b9f7af?w=600&auto=format&fit=crop&q=80",
+    tags: ["Vegetarian", "High Fiber"],
+    ingredients: [
+      "1/2 cup Rolled Oats",
+      "1/4 cup Peas and Carrots, diced",
+      "1/2 small Onion, chopped",
+      "1/2 tsp Cumin seeds",
+      "Water, salt, turmeric, and fresh coriander"
+    ],
+    instructions: [
+      "Sauté cumin seeds, onions, and veggies in a pan with a drop of oil.",
+      "Add oats and stir for 1 minute.",
+      "Pour in 1.5 cups of water and add spices.",
+      "Simmer for 5-6 minutes until oats are soft and thick. Garnish with coriander."
+    ]
+  },
+  {
+    name: "Moong Dal Chilla",
+    type: "Breakfast",
+    calories: 280,
+    protein: 14,
+    carbs: 44,
+    fat: 6,
+    prepTime: "20 mins",
+    image: "https://images.unsplash.com/photo-1589301760014-d929f3979dbc?w=600&auto=format&fit=crop&q=80",
+    tags: ["Vegetarian", "Gluten-Free", "High Protein"],
+    ingredients: [
+      "1/2 cup Moong Dal (soaked & blended)",
+      "2 tbsp grated Paneer (for filling)",
+      "1 chopped green chili",
+      "Pinch of ginger paste and hing",
+      "Salt and fresh coriander"
+    ],
+    instructions: [
+      "Blend soaked dal with ginger and green chili into a smooth batter.",
+      "Pour a ladle of batter onto a hot non-stick tawa and spread thin.",
+      "Cook on medium heat until golden, flip and cook the other side.",
+      "Add grated paneer in the center, fold and serve with mint chutney."
+    ]
+  },
+  {
+    name: "Mixed Fruit Parfait",
+    type: "Snack",
+    calories: 190,
+    protein: 10,
+    carbs: 28,
+    fat: 4,
+    prepTime: "5 mins",
+    image: "https://images.unsplash.com/photo-1488477181946-6428a0291777?w=600&auto=format&fit=crop&q=80",
+    tags: ["Vegetarian", "Gluten-Free"],
+    ingredients: [
+      "150g Low-fat Curd or Greek Yogurt",
+      "1/4 cup Strawberries & Pomegranate",
+      "1 tsp Honey",
+      "1 tbsp Chia Seeds"
+    ],
+    instructions: [
+      "Whisk yogurt with honey until smooth.",
+      "Layer half the yogurt in a cup, top with a layer of mixed fruits and chia seeds.",
+      "Add the remaining yogurt and top with pomegranate seeds.",
+      "Serve chilled."
+    ]
+  }
+];
 
 const CustomTooltip = ({ active, payload }: any) => {
   if (active && payload && payload.length) {
@@ -67,6 +212,9 @@ export const DashboardPage = ({ onUploadSuccess, onNavigate }: DashboardPageProp
   const [workoutLogs, setWorkoutLogs] = useState<any[]>([]);
   const [progressLogs, setProgressLogs] = useState<any[]>([]);
   const [historyLogs, setHistoryLogs] = useState<any[]>([]);
+  const [todayMeals, setTodayMeals] = useState<any[]>([]);
+  const [selectedRecipe, setSelectedRecipe] = useState<any>(null);
+  const [isLoggingRecipe, setIsLoggingRecipe] = useState(false);
 
   // Dynamic Goals based on Profile
   const GOALS = useMemo(() => {
@@ -78,6 +226,37 @@ export const DashboardPage = ({ onUploadSuccess, onNavigate }: DashboardPageProp
     const fat = Math.round((calories * 0.30) / 9);
     return { calories, protein, carbs, fat };
   }, [profile]);
+
+  // Dynamic Meal Suggestions based on remaining calories & profile diet preferences
+  const mealSuggestions = useMemo(() => {
+    const loggedTypes = todayMeals.map(m => m.mealType?.toLowerCase() || "");
+    const remainingCals = Math.max(0, GOALS.calories - todayMacros.calories);
+    const isVegetarian = profile?.dietaryRestrictions?.includes("Vegetarian") || profile?.dietary_restrictions?.includes("Vegetarian");
+
+    const availableSuggestions = RECIPE_SUGGESTIONS.filter(recipe => {
+      if (isVegetarian && recipe.tags.includes("Non-Vegetarian")) return false;
+      if (loggedTypes.includes(recipe.type.toLowerCase())) return false;
+      return true;
+    });
+
+    const hour = new Date().getHours();
+    let preferredTypes: string[] = [];
+    if (hour < 11) {
+      preferredTypes = ["breakfast", "snack", "lunch", "dinner"];
+    } else if (hour < 16) {
+      preferredTypes = ["lunch", "snack", "dinner", "breakfast"];
+    } else {
+      preferredTypes = ["dinner", "snack", "lunch", "breakfast"];
+    }
+
+    const sorted = [...availableSuggestions].sort((a, b) => {
+      const aIdx = preferredTypes.indexOf(a.type.toLowerCase());
+      const bIdx = preferredTypes.indexOf(b.type.toLowerCase());
+      return (aIdx === -1 ? 99 : aIdx) - (bIdx === -1 ? 99 : bIdx);
+    });
+
+    return sorted.filter(r => r.calories <= remainingCals || remainingCals > 500).slice(0, 2);
+  }, [todayMeals, GOALS, todayMacros, profile]);
 
   const HYDRATION_GOALS: Record<string, number> = {
     rest: 2000,
@@ -147,6 +326,31 @@ export const DashboardPage = ({ onUploadSuccess, onNavigate }: DashboardPageProp
         }
         return n;
       }));
+
+      // Fetch history for macros, calorie trends, and logged meals
+      const histRes = await fetchHistoryRequest({ limit: 20, page: 1, sort: "desc" });
+      if (histRes.success) {
+        setHistoryLogs(histRes.data || []);
+        const today = new Date().toDateString();
+        const todayEntries = (histRes.data || []).filter((e: any) => new Date(e.createdAt).toDateString() === today);
+        setTodayMeals(todayEntries);
+        
+        const totals = todayEntries.reduce(
+          (acc: any, e: any) => ({
+            calories: acc.calories + (e.macros?.calories || 0),
+            protein: acc.protein + (e.macros?.protein || 0),
+            carbs: acc.carbs + (e.macros?.carbs || 0),
+            fat: acc.fat + (e.macros?.fat || 0),
+          }),
+          { calories: 0, protein: 0, carbs: 0, fat: 0 }
+        );
+        setTodayMacros({
+          calories: Math.round(totals.calories),
+          protein: Math.round(totals.protein),
+          carbs: Math.round(totals.carbs),
+          fat: Math.round(totals.fat),
+        });
+      }
 
       // Load Sleep Logs
       const sleepRes = await fetchSleepLogsRequest();
@@ -237,6 +441,7 @@ export const DashboardPage = ({ onUploadSuccess, onNavigate }: DashboardPageProp
         setHistoryLogs(res.data || []);
         const today = new Date().toDateString();
         const todayEntries = (res.data || []).filter((e: any) => new Date(e.createdAt).toDateString() === today);
+        setTodayMeals(todayEntries);
         const totals = todayEntries.reduce(
           (acc: any, e: any) => ({
             calories: acc.calories + (e.macros?.calories || 0),
@@ -1047,6 +1252,130 @@ export const DashboardPage = ({ onUploadSuccess, onNavigate }: DashboardPageProp
         <CameraIcon className="w-5 h-5" />
         <span>Scan Meal</span>
       </button>
+
+      {/* Suggested Recipe Detail Modal */}
+      {selectedRecipe && (
+        <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+          <div className="w-full max-w-xl bg-white rounded-[32px] border border-border shadow-2xl overflow-hidden my-8 max-h-[90vh] flex flex-col animate-slide-up">
+            
+            {/* Modal Image Header */}
+            <div className="relative h-56 shrink-0 text-left">
+              <img 
+                src={selectedRecipe.image} 
+                alt={selectedRecipe.name} 
+                className="w-full h-full object-cover"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
+              <button 
+                onClick={() => setSelectedRecipe(null)}
+                className="absolute top-4 right-4 w-8 h-8 rounded-full bg-white/20 hover:bg-white/40 text-white flex items-center justify-center transition-colors"
+              >
+                ✕
+              </button>
+              <div className="absolute bottom-4 left-6 right-6 text-white">
+                <span className="px-2.5 py-0.5 rounded-full bg-[#9DB89F] text-white text-[10px] font-bold uppercase tracking-wider">
+                  {selectedRecipe.type} Suggested Recipe
+                </span>
+                <h3 className="text-2xl font-black mt-1.5">{selectedRecipe.name}</h3>
+              </div>
+            </div>
+
+            {/* Scrollable Content */}
+            <div className="p-6 space-y-5 overflow-y-auto flex-1 text-left">
+              {/* Prep time & macros */}
+              <div className="grid grid-cols-4 gap-2 bg-[#F8F9FA] rounded-2xl p-3 border border-border">
+                <div className="text-center">
+                  <p className="text-[10px] text-textMuted font-bold uppercase">Time</p>
+                  <p className="text-xs font-black text-textHeading mt-0.5">{selectedRecipe.prepTime}</p>
+                </div>
+                <div className="text-center border-l border-border">
+                  <p className="text-[10px] text-orange-600 font-bold uppercase">Calories</p>
+                  <p className="text-xs font-black text-orange-600 mt-0.5">{selectedRecipe.calories} kcal</p>
+                </div>
+                <div className="text-center border-l border-border">
+                  <p className="text-[10px] text-textHeading font-bold uppercase">Protein</p>
+                  <p className="text-xs font-black text-textHeading mt-0.5">{selectedRecipe.protein}g</p>
+                </div>
+                <div className="text-center border-l border-border">
+                  <p className="text-[10px] text-textMuted font-bold uppercase">Carbs / Fat</p>
+                  <p className="text-xs font-black text-textHeading mt-0.5">{selectedRecipe.carbs}g / {selectedRecipe.fat}g</p>
+                </div>
+              </div>
+
+              {/* Ingredients */}
+              <div>
+                <h4 className="text-xs font-bold text-textHeading uppercase tracking-wider mb-2">Ingredients Needed</h4>
+                <ul className="space-y-1.5">
+                  {selectedRecipe.ingredients.map((ing: string, i: number) => (
+                    <li key={i} className="text-xs text-textBody flex items-center gap-2">
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#9DB89F]"></span> {ing}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              {/* Instructions */}
+              <div>
+                <h4 className="text-xs font-bold text-textHeading uppercase tracking-wider mb-2">Preparation Instructions</h4>
+                <ol className="space-y-2.5">
+                  {selectedRecipe.instructions.map((step: string, i: number) => (
+                    <li key={i} className="text-xs text-textBody flex gap-2.5 items-start">
+                      <span className="flex items-center justify-center w-5 h-5 rounded-full bg-[#EBF2EBF2] border border-[#D4E6D5] text-[#2C3E2B] text-[10px] font-bold shrink-0 mt-0.5">
+                        {i + 1}
+                      </span>
+                      <span className="leading-relaxed">{step}</span>
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            </div>
+
+            {/* Modal Actions Footer */}
+            <div className="p-6 border-t border-border bg-[#F5F6F1]/30 flex justify-end gap-3 shrink-0">
+              <button 
+                onClick={() => setSelectedRecipe(null)}
+                className="px-5 py-2.5 bg-white border border-[#E2E4DC] hover:bg-surfaceAlt text-textHeading text-xs font-bold rounded-full transition-all"
+              >
+                Close
+              </button>
+              <button 
+                onClick={async () => {
+                  try {
+                    setIsLoggingRecipe(true);
+                    await logCustomMealRequest({
+                      name: selectedRecipe.name,
+                      calories: selectedRecipe.calories,
+                      protein: selectedRecipe.protein,
+                      carbs: selectedRecipe.carbs,
+                      fat: selectedRecipe.fat,
+                      mealType: selectedRecipe.type,
+                      imageUrl: selectedRecipe.image
+                    });
+                    // Refresh stats and meals
+                    await loadDashboardStats();
+                    setSelectedRecipe(null);
+                    if (onUploadSuccess) onUploadSuccess();
+                  } catch (err) {
+                    console.error("Failed to log recipe suggestion", err);
+                  } finally {
+                    setIsLoggingRecipe(false);
+                  }
+                }}
+                disabled={isLoggingRecipe}
+                className="px-6 py-2.5 bg-[#9DB89F] hover:bg-[#7A9E7E] text-white text-xs font-bold rounded-full transition-all disabled:opacity-50 flex items-center gap-1.5"
+              >
+                {isLoggingRecipe ? (
+                  <div className="animate-spin h-3.5 w-3.5 border-2 border-white border-t-transparent rounded-full" />
+                ) : (
+                  <span>✓</span>
+                )}
+                Add to Daily Log
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
 
       {/* Overlay Upload Modal */}
       {isUploadModalOpen && (

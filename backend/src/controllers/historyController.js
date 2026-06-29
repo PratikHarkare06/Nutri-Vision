@@ -95,9 +95,32 @@ const addWater = async (req, res, next) => {
         water_intake_ml: entry.water_intake_ml
       }
     });
+const logCustomMeal = async (req, res, next) => {
+  try {
+    const { name, calories, protein, carbs, fat, mealType, imageUrl } = req.body;
+    if (!name || !calories) {
+      return next(createAppError(400, "INVALID_DATA", "Name and calories are required."));
+    }
+
+    const { FoodEntry } = require("../models/FoodEntry");
+    const entry = await FoodEntry.create({
+      userId: req.user._id,
+      imageUrl: imageUrl || "https://images.unsplash.com/photo-1498837167922-ddd27525d352?w=600&auto=format&fit=crop&q=80",
+      mealType: mealType || "Snack",
+      foods: [{ name, confidence: 1 }],
+      macros: {
+        calories: Number(calories),
+        protein: Number(protein || 0),
+        carbs: Number(carbs || 0),
+        fat: Number(fat || 0),
+        fiber: 0
+      }
+    });
+
+    res.status(200).json({ success: true, data: entry });
   } catch (error) {
     next(error);
   }
 };
 
-module.exports = { getHistory, getDailyWater, addWater };
+module.exports = { getHistory, getDailyWater, addWater, logCustomMeal };
