@@ -21,6 +21,61 @@ export const DietPlanPage = () => {
   const [swapIndex, setSwapIndex] = useState<number>(0);
   const [isSwapping, setIsSwapping] = useState(false);
 
+  // Custom mock plan list scaled dynamically to match the user's calculated caloric targets
+  const defaultDietPlan: DailyDietPlan[] = useMemo(() => {
+    const targetCal = profile?.maintenanceCalories || 1900;
+    const scaleFactor = targetCal / 1900;
+
+    return [
+      {
+        day: "Monday",
+        totalCalories: Math.round(1850 * scaleFactor),
+        totalProtein: Math.round(110 * scaleFactor),
+        totalCarbs: Math.round(210 * scaleFactor),
+        totalFat: Math.round(60 * scaleFactor),
+        meals: [
+          { type: "Breakfast", name: "Oatmeal with berries", description: "Steel cut oats with fruit", calories: Math.round(400 * scaleFactor), protein: Math.round(15 * scaleFactor), carbs: Math.round(65 * scaleFactor), fat: Math.round(8 * scaleFactor) }
+        ]
+      },
+      {
+        day: "Tuesday",
+        totalCalories: Math.round(1920 * scaleFactor),
+        totalProtein: Math.round(120 * scaleFactor),
+        totalCarbs: Math.round(220 * scaleFactor),
+        totalFat: Math.round(65 * scaleFactor),
+        meals: [
+          { type: "Breakfast", name: "Avocado Toast with Poached Egg", description: "Whole grain sourdough, smashed avocado, and two organic eggs.", calories: Math.round(420 * scaleFactor), protein: Math.round(18 * scaleFactor), carbs: Math.round(32 * scaleFactor), fat: Math.round(12 * scaleFactor) },
+          { type: "Lunch", name: "Mediterranean Quinoa Bowl", description: "Fresh cucumbers, feta cheese, chickpeas, and lemon-herb dressing.", calories: Math.round(580 * scaleFactor), protein: Math.round(14 * scaleFactor), carbs: Math.round(45 * scaleFactor), fat: Math.round(16 * scaleFactor) },
+          { type: "Dinner", name: "Grilled Salmon & Asparagus", description: "Wild-caught salmon with roasted garlic asparagus and brown rice.", calories: Math.round(650 * scaleFactor), protein: Math.round(38 * scaleFactor), carbs: Math.round(20 * scaleFactor), fat: Math.round(22 * scaleFactor) }
+        ]
+      },
+      {
+        day: "Wednesday",
+        totalCalories: Math.round(1700 * scaleFactor),
+        totalProtein: Math.round(105 * scaleFactor),
+        totalCarbs: Math.round(180 * scaleFactor),
+        totalFat: Math.round(55 * scaleFactor),
+        meals: []
+      },
+      {
+        day: "Thursday",
+        totalCalories: Math.round(2100 * scaleFactor),
+        totalProtein: Math.round(130 * scaleFactor),
+        totalCarbs: Math.round(240 * scaleFactor),
+        totalFat: Math.round(70 * scaleFactor),
+        meals: []
+      },
+      {
+        day: "Friday",
+        totalCalories: Math.round(1880 * scaleFactor),
+        totalProtein: Math.round(115 * scaleFactor),
+        totalCarbs: Math.round(215 * scaleFactor),
+        totalFat: Math.round(60 * scaleFactor),
+        meals: []
+      }
+    ];
+  }, [profile]);
+
   const handleOpenSwapModal = (day: string, idx: number) => {
     setSwapDay(day);
     setSwapIndex(idx);
@@ -135,61 +190,6 @@ export const DietPlanPage = () => {
 
   const daysOfWeek = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
   
-  // Custom mock plan list scaled dynamically to match the user's calculated caloric targets
-  const defaultDietPlan: DailyDietPlan[] = useMemo(() => {
-    const targetCal = profile?.maintenanceCalories || 1900;
-    const scaleFactor = targetCal / 1900;
-
-    return [
-      {
-        day: "Monday",
-        totalCalories: Math.round(1850 * scaleFactor),
-        totalProtein: Math.round(110 * scaleFactor),
-        totalCarbs: Math.round(210 * scaleFactor),
-        totalFat: Math.round(60 * scaleFactor),
-        meals: [
-          { type: "Breakfast", name: "Oatmeal with berries", description: "Steel cut oats with fruit", calories: Math.round(400 * scaleFactor), protein: Math.round(15 * scaleFactor), carbs: Math.round(65 * scaleFactor), fat: Math.round(8 * scaleFactor) }
-        ]
-      },
-      {
-        day: "Tuesday",
-        totalCalories: Math.round(1920 * scaleFactor),
-        totalProtein: Math.round(120 * scaleFactor),
-        totalCarbs: Math.round(220 * scaleFactor),
-        totalFat: Math.round(65 * scaleFactor),
-        meals: [
-          { type: "Breakfast", name: "Avocado Toast with Poached Egg", description: "Whole grain sourdough, smashed avocado, and two organic eggs.", calories: Math.round(420 * scaleFactor), protein: Math.round(18 * scaleFactor), carbs: Math.round(32 * scaleFactor), fat: Math.round(12 * scaleFactor) },
-          { type: "Lunch", name: "Mediterranean Quinoa Bowl", description: "Fresh cucumbers, feta cheese, chickpeas, and lemon-herb dressing.", calories: Math.round(580 * scaleFactor), protein: Math.round(14 * scaleFactor), carbs: Math.round(45 * scaleFactor), fat: Math.round(16 * scaleFactor) },
-          { type: "Dinner", name: "Grilled Salmon & Asparagus", description: "Wild-caught salmon with roasted garlic asparagus and brown rice.", calories: Math.round(650 * scaleFactor), protein: Math.round(38 * scaleFactor), carbs: Math.round(20 * scaleFactor), fat: Math.round(22 * scaleFactor) }
-        ]
-      },
-      {
-        day: "Wednesday",
-        totalCalories: Math.round(1700 * scaleFactor),
-        totalProtein: Math.round(105 * scaleFactor),
-        totalCarbs: Math.round(180 * scaleFactor),
-        totalFat: Math.round(55 * scaleFactor),
-        meals: []
-      },
-      {
-        day: "Thursday",
-        totalCalories: Math.round(2100 * scaleFactor),
-        totalProtein: Math.round(130 * scaleFactor),
-        totalCarbs: Math.round(240 * scaleFactor),
-        totalFat: Math.round(70 * scaleFactor),
-        meals: []
-      },
-      {
-        day: "Friday",
-        totalCalories: Math.round(1880 * scaleFactor),
-        totalProtein: Math.round(115 * scaleFactor),
-        totalCarbs: Math.round(215 * scaleFactor),
-        totalFat: Math.round(60 * scaleFactor),
-        meals: []
-      }
-    ];
-  }, [profile]);
-
   const planList = profile?.dietPlan && profile.dietPlan.length > 0 ? profile.dietPlan : defaultDietPlan;
   const activePlan = planList.find(d => d.day === selectedDay) || planList[1];
 
