@@ -573,9 +573,11 @@ export const DashboardPage = ({ onUploadSuccess, onNavigate }: DashboardPageProp
       rec.onerror = (event: any) => {
         console.error("Speech recognition error", event.error);
         if (event.error === "not-allowed") {
-          setSpeechError("Microphone permission denied. Please allow microphone access or type your meal manually.");
+          setSpeechError("Microphone permission denied. Please allow microphone access in your browser settings or type your meal manually below.");
+        } else if (event.error === "network") {
+          setSpeechError("Speech recognition network error. In Chrome and Safari, voice-to-text requires a secure connection to cloud transcription servers. Please type your meal description directly in the input box below.");
         } else {
-          setSpeechError(`Error during speech recognition: ${event.error}. Please type your meal manually.`);
+          setSpeechError(`Error during speech recognition: ${event.error}. Please type your meal manually below.`);
         }
         setIsRecording(false);
         if (recognitionRef.current) {
