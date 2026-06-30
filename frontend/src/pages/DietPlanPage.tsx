@@ -21,6 +21,35 @@ export const DietPlanPage = () => {
   const [swapIndex, setSwapIndex] = useState<number>(0);
   const [isSwapping, setIsSwapping] = useState(false);
 
+  // Calculate date information for the current week (Monday - Sunday) to make the calendar real-time
+  const currentWeekDays = useMemo(() => {
+    const today = new Date();
+    const day = today.getDay();
+    const diffToMonday = today.getDate() - day + (day === 0 ? -6 : 1);
+    const monday = new Date(today.setDate(diffToMonday));
+    
+    const week = [];
+    const dayNames = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+    
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(monday);
+      d.setDate(monday.getDate() + i);
+      week.push({
+        dayName: dayNames[i],
+        dateNum: d.getDate().toString(),
+        monthYear: d.toLocaleDateString("en-US", { month: "long", year: "numeric" }),
+      });
+    }
+    return week;
+  }, []);
+
+  const currentMonthYear = useMemo(() => {
+    if (currentWeekDays.length > 0) {
+      return currentWeekDays[0].monthYear;
+    }
+    return new Date().toLocaleDateString("en-US", { month: "long", year: "numeric" });
+  }, [currentWeekDays]);
+
   // Custom mock plan list scaled dynamically to match the user's calculated caloric targets
   const defaultDietPlan: DailyDietPlan[] = useMemo(() => {
     const targetCal = profile?.maintenanceCalories || 1900;
@@ -190,35 +219,6 @@ export const DietPlanPage = () => {
 
   const daysOfWeek = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
   
-  // Calculate date information for the current week (Monday - Sunday) to make the calendar real-time
-  const currentWeekDays = useMemo(() => {
-    const today = new Date();
-    const day = today.getDay();
-    const diffToMonday = today.getDate() - day + (day === 0 ? -6 : 1);
-    const monday = new Date(today.setDate(diffToMonday));
-    
-    const week = [];
-    const dayNames = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
-    
-    for (let i = 0; i < 7; i++) {
-      const d = new Date(monday);
-      d.setDate(monday.getDate() + i);
-      week.push({
-        dayName: dayNames[i],
-        dateNum: d.getDate().toString(),
-        monthYear: d.toLocaleDateString("en-US", { month: "long", year: "numeric" }),
-      });
-    }
-    return week;
-  }, []);
-
-  const currentMonthYear = useMemo(() => {
-    if (currentWeekDays.length > 0) {
-      return currentWeekDays[0].monthYear;
-    }
-    return new Date().toLocaleDateString("en-US", { month: "long", year: "numeric" });
-  }, [currentWeekDays]);
-
   const planList = profile?.dietPlan && profile.dietPlan.length > 0 ? profile.dietPlan : defaultDietPlan;
   const activePlan = planList.find(d => d.day === selectedDay) || planList[1];
 
