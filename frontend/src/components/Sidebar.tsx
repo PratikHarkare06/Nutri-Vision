@@ -349,7 +349,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentPath, onNavigate, isOpe
             <div className="w-full bg-[#D4E6D5] rounded-full h-2 mb-2 overflow-hidden">
               <div className="h-full bg-[#7A9E7E] rounded-full" style={{ width: "80%" }} />
             </div>
-            <p className="text-xs text-textMuted font-medium">Keep it up, Alex!</p>
+            <p className="text-xs text-textMuted font-medium">Keep it up, {user?.name || "Friend"}!</p>
           </div>
         );
       case "/profile":
@@ -362,7 +362,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentPath, onNavigate, isOpe
             <div className="w-full bg-[#D4E6D5] rounded-full h-2 mb-2 overflow-hidden">
               <div className="h-full bg-[#7A9E7E] rounded-full" style={{ width: "60%" }} />
             </div>
-            <p className="text-xs text-textMuted font-medium">Keep it up, Alex!</p>
+            <p className="text-xs text-textMuted font-medium">Keep it up, {user?.name || "Friend"}!</p>
           </div>
         );
       case "/results":

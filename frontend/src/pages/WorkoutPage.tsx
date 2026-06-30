@@ -93,7 +93,7 @@ export const WorkoutPage = ({ onNavigate }: WorkoutPageProps) => {
   const [hydrated, setHydrated] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState([
-    { id: 1, type: "streak", emoji: "⭐", bg: "#EBF2EB", border: "#D4E6D5", titleColor: "#2C3E2B", textColor: "#2C3E2B", title: "7 Day Streak!", text: "Alex, you have maintained a 7-day food logging consistency." },
+    { id: 1, type: "streak", emoji: "⭐", bg: "#EBF2EB", border: "#D4E6D5", titleColor: "#2C3E2B", textColor: "#2C3E2B", title: "7 Day Streak!", text: "You have maintained a 7-day food logging consistency." },
     { id: 2, type: "water", emoji: "💧", bg: "#FEF0EB", border: "#FEE2D5", titleColor: "#E8815A", textColor: "#E8815A", title: "Hydration Target", text: "Don't forget to log 500ml water after your lunch." },
     { id: 3, type: "workout", emoji: "🏋️‍♂️", bg: "#EBF2F8", border: "#E2E4DC", titleColor: "#2C3E2B", textColor: "#888888", title: "Workout Logged", text: "3 workout sessions synchronized from Apple Health." }
   ]);
@@ -1228,7 +1228,7 @@ export const WorkoutPage = ({ onNavigate }: WorkoutPageProps) => {
                 <div className="space-y-2">
                   <h2 className="text-3xl font-black text-textHeading">Workout Completed!</h2>
                   <p className="text-xs text-textMuted leading-relaxed max-w-sm mx-auto">
-                    Outstanding job, Alex! Today's exercises have been synchronized and successfully logged.
+                    Outstanding job, {profile?.fullName?.split(" ")[0] || "User"}! Today's exercises have been synchronized and successfully logged.
                   </p>
                 </div>
 

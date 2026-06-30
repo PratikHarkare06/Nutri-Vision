@@ -1,4 +1,4 @@
-import { getUploadErrorMessage, uploadImageRequest, scanBarcodeRequest, uploadPantryImageRequest, uploadVoiceLogRequest, uploadReceiptRequest, uploadVoiceAudioRequest, calibrateMealWeightRequest } from "../services/uploadApi";
+import { getUploadErrorMessage, uploadImageRequest, scanBarcodeRequest, uploadPantryImageRequest, uploadVoiceLogRequest, uploadReceiptRequest, uploadVoiceAudioRequest, calibrateMealWeightRequest, editMealIngredientsRequest } from "../services/uploadApi";
 import { create } from "zustand";
 import type { UploadAnalysis, PantryAnalysis } from "../types";
 
@@ -30,6 +30,7 @@ type UploadState = {
   uploadVoiceLog: (transcript: string) => Promise<boolean>;
   uploadVoiceAudio: (audioBlob: Blob) => Promise<boolean>;
   calibrateMealWeight: (analysisId: string, trueWeight: number) => Promise<boolean>;
+  editMealIngredients: (analysisId: string, ingredients: Array<{ name: string; weight: number }>) => Promise<boolean>;
   addScannedProductToHistory: (barcode: string, name: string) => void;
   clearScannedHistory: () => void;
   uploadReceipt: (file: File | null) => Promise<string[] | null>;
@@ -370,6 +371,31 @@ export const useUploadStore = create<UploadState>((set, get) => ({
 
     try {
       const response = await calibrateMealWeightRequest(analysisId, trueWeight);
+      set({
+        analysis: response.data,
+        errorMessage: "",
+        progressMessage: "",
+        isUploading: false,
+      });
+      return true;
+    } catch (error) {
+      set({
+        errorMessage: getUploadErrorMessage(error),
+        progressMessage: "",
+        isUploading: false,
+      });
+      return false;
+    }
+  },
+  editMealIngredients: async (analysisId, ingredients) => {
+    set({
+      errorMessage: "",
+      progressMessage: "Updating meal ingredients...",
+      isUploading: true,
+    });
+
+    try {
+      const response = await editMealIngredientsRequest(analysisId, ingredients);
       set({
         analysis: response.data,
         errorMessage: "",

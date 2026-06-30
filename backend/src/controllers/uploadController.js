@@ -1,6 +1,6 @@
 const { env } = require("../config/env");
 const { FoodEntry, mapFoodEntryToAnalysis } = require("../models/FoodEntry");
-const { analyzeFoodWithFatSecret } = require("../services/fatSecretAnalysisService");
+const { analyzeFoodWithFatSecret, getNutritionalData, getFatSecretToken } = require("../services/fatSecretAnalysisService");
 const { createAppError } = require("../utils/createAppError");
 const { awardXP } = require("../services/gamificationService");
 const { getImageUrl } = require("../utils/urlHelper");
@@ -83,7 +83,6 @@ const uploadImage = async (req, res, next) => {
 };
 
 const { addUserCorrection } = require("../utils/userMemory");
-const { getFatSecretToken, getNutritionalData } = require("../services/fatSecretAnalysisService");
 
 const correctIngredient = async (req, res, next) => {
   try {
@@ -376,11 +375,115 @@ const calibrateMealWeight = async (req, res, next) => {
   }
 };
 
+const editMealIngredients = async (req, res, next) => {
+  const { analysisId, ingredients } = req.body;
+  if (!analysisId || !Array.isArray(ingredients)) {
+    return next(createAppError(400, "INVALID_DATA", "analysisId and an ingredients array are required."));
+  }
+
+  try {
+    const entry = await FoodEntry.findById(analysisId);
+    if (!entry) {
+      return next(createAppError(404, "NOT_FOUND", "Logged meal not found."));
+    }
+
+    let fatSecretToken = null;
+    try {
+      fatSecretToken = await getFatSecretToken();
+    } catch (_) {}
+
+    const newFoods = [];
+    const newIngredientsMacros = new Map();
+    let totalCalories = 0;
+    let totalProtein = 0;
+    let totalCarbs = 0;
+    let totalFat = 0;
+    let totalFiber = 0;
+    let totalWeight = 0;
+
+    for (const item of ingredients) {
+      const name = (item.name || "").trim().toLowerCase();
+      const weight = parseFloat(item.weight) || 100;
+      if (!name) continue;
+
+      newFoods.push({ name, confidence: 0.95 });
+      totalWeight += weight;
+
+      let details = null;
+      if (entry.ingredients_macros && entry.ingredients_macros.has(name)) {
+        const oldVal = entry.ingredients_macros.get(name);
+        details = {
+          calories: oldVal.calories,
+          protein: oldVal.protein,
+          carbs: oldVal.carbs,
+          fat: oldVal.fat,
+          fiber: oldVal.fiber || 0,
+          source: oldVal.source || "cached"
+        };
+      } else {
+        details = await getNutritionalData(fatSecretToken, name);
+      }
+
+      if (!details) {
+        details = { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0, source: "fallback" };
+      }
+
+      const scale = weight / 100;
+      const portionCalories = Math.round(details.calories * scale);
+      const portionProtein = Math.round(details.protein * scale);
+      const portionCarbs = Math.round(details.carbs * scale);
+      const portionFat = Math.round(details.fat * scale);
+      const portionFiber = Math.round(details.fiber * scale);
+
+      newIngredientsMacros.set(name, {
+        calories: details.calories,
+        protein: details.protein,
+        carbs: details.carbs,
+        fat: details.fat,
+        fiber: details.fiber,
+        source: details.source,
+        portionWeight: weight,
+        portionCalories,
+        portionProtein,
+        portionCarbs,
+        portionFat,
+        portionFiber
+      });
+
+      totalCalories += portionCalories;
+      totalProtein += portionProtein;
+      totalCarbs += portionCarbs;
+      totalFat += portionFat;
+      totalFiber += portionFiber;
+    }
+
+    entry.foods = newFoods;
+    entry.weight = Math.round(totalWeight);
+    entry.calories = Math.round(totalCalories);
+    entry.protein = Math.round(totalProtein);
+    entry.carbs = Math.round(totalCarbs);
+    entry.fat = Math.round(totalFat);
+    entry.fiber = Math.round(totalFiber);
+    entry.ingredients_macros = newIngredientsMacros;
+
+    await entry.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Meal ingredients updated successfully.",
+      data: mapFoodEntryToAnalysis(entry, req),
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
 module.exports = { 
   uploadImage, 
   correctIngredient, 
   scanBarcode, 
   analyzePantryImage,
   analyzeReceiptImage,
-  calibrateMealWeight
+  calibrateMealWeight,
+  editMealIngredients
 };

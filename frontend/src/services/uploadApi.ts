@@ -111,6 +111,14 @@ export const calibrateMealWeightRequest = async (analysisId: string, trueWeight:
   return response.data;
 };
 
+export const editMealIngredientsRequest = async (
+  analysisId: string,
+  ingredients: Array<{ name: string; weight: number }>,
+) => {
+  const response = await api.post<UploadSuccessResponse>("/upload/edit-ingredients", { analysisId, ingredients });
+  return response.data;
+};
+
 export const getUploadErrorMessage = (error: unknown): string => {
   const axiosError = error as AxiosError<ApiErrorResponse>;
 

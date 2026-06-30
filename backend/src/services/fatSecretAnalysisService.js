@@ -857,4 +857,4 @@ const analyzeFoodWithFatSecret = async (imagePath, mimeType, imageUrl, userMealT
   return result;
 };
 
-module.exports = { analyzeFoodWithFatSecret };
+module.exports = { analyzeFoodWithFatSecret, getNutritionalData, getFatSecretToken };
