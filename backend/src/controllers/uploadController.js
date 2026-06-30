@@ -111,7 +111,14 @@ const correctIngredient = async (req, res, next) => {
     const oldKey = oldName.toLowerCase();
     
     // 4. Extract the old macros and portion weight
-    const oldMacros = entry.ingredients_macros.get(oldKey);
+    let oldMacros = null;
+    if (entry.ingredients_macros) {
+      if (typeof entry.ingredients_macros.get === "function") {
+        oldMacros = entry.ingredients_macros.get(oldKey);
+      } else {
+        oldMacros = entry.ingredients_macros[oldKey];
+      }
+    }
     if (!oldMacros) {
       return next(createAppError(500, "DATA_ERROR", "Could not find macro data for old ingredient"));
     }
@@ -411,8 +418,16 @@ const editMealIngredients = async (req, res, next) => {
       totalWeight += weight;
 
       let details = null;
-      if (entry && entry.ingredients_macros && entry.ingredients_macros.has(name)) {
-        const oldVal = entry.ingredients_macros.get(name);
+      let oldVal = null;
+      if (entry && entry.ingredients_macros) {
+        if (typeof entry.ingredients_macros.get === "function" && entry.ingredients_macros.has(name)) {
+          oldVal = entry.ingredients_macros.get(name);
+        } else if (entry.ingredients_macros[name]) {
+          oldVal = entry.ingredients_macros[name];
+        }
+      }
+
+      if (oldVal) {
         details = {
           calories: oldVal.calories,
           protein: oldVal.protein,
