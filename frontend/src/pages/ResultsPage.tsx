@@ -185,10 +185,13 @@ export const ResultsPage = ({ onBack, onNavigate }: ResultsPageProps) => {
   const addIngredientsToPantry = useUploadStore((state) => state.addIngredientsToPantry);
   const deductIngredientsFromPantry = useUploadStore((state) => state.deductIngredientsFromPantry);
   const pantryAnalysis = useUploadStore((state) => state.pantryAnalysis);
+  const calibrateMealWeight = useUploadStore((state) => state.calibrateMealWeight);
   
   const [isSaved, setIsSaved] = useState(false);
   const [isDeducted, setIsDeducted] = useState(false);
   const [isSimilarModalOpen, setIsSimilarModalOpen] = useState(false);
+  const [isCalibrating, setIsCalibrating] = useState(false);
+  const [scaleWeight, setScaleWeight] = useState("");
 
   const [profile, setProfile] = useState<any>(null);
   const [allergenConflicts, setAllergenConflicts] = useState<any[]>([]);
@@ -381,6 +384,11 @@ export const ResultsPage = ({ onBack, onNavigate }: ResultsPageProps) => {
                 <div className="absolute inset-0 flex flex-col items-center justify-center">
                   <span className="text-2xl font-extrabold text-textHeading">{formatNumber(analysis.macros.calories)}</span>
                   <span className="text-[10px] text-textMuted font-bold uppercase">Total kcal</span>
+                  {analysis.confidenceRange && (
+                    <span className="text-[10px] text-primary font-bold mt-0.5">
+                      ±{analysis.confidenceRange.percentage}% ({analysis.confidenceRange.min}–{analysis.confidenceRange.max})
+                    </span>
+                  )}
                 </div>
               </div>
 
@@ -662,9 +670,8 @@ export const ResultsPage = ({ onBack, onNavigate }: ResultsPageProps) => {
 
             <div className="space-y-4">
               {analysis.foods.map((food, index) => {
-                const category = foodCategories[food.name] ?? "Ingredient";
-                const mockWeights = ["180g", "100g", "120g", "15ml"];
-                const weight = mockWeights[index % mockWeights.length];
+                const macroInfo = analysis.ingredientsMacros?.[food.name.toLowerCase()];
+                const weight = macroInfo?.portionWeight ? `${Math.round(macroInfo.portionWeight)}g` : "100g";
                 return (
                   <div key={food.name} className="flex justify-between items-center pb-4 border-b border-[#F5F5F0] last:border-b-0 last:pb-0">
                     <div className="flex gap-3 items-center">
@@ -682,9 +689,59 @@ export const ResultsPage = ({ onBack, onNavigate }: ResultsPageProps) => {
               })}
             </div>
 
-            <button className="w-full mt-6 py-2.5 bg-white border border-[#E2E4DC] hover:border-primary text-textMuted hover:text-primary rounded-xl text-xs font-bold transition-all shadow-sm">
-              Edit Ingredients
-            </button>
+            {isCalibrating ? (
+              <div className="mt-4 p-4 bg-[#F9F9F6] border border-border rounded-xl space-y-3">
+                <div className="flex justify-between items-center">
+                  <h4 className="text-xs font-bold text-textHeading">Weigh Food Calibration ⚖️</h4>
+                  <button 
+                    onClick={() => setIsCalibrating(false)}
+                    className="text-xs text-textMuted hover:text-primary font-bold animate-pulse"
+                  >
+                    Cancel
+                  </button>
+                </div>
+                <p className="text-[11px] text-textMuted leading-relaxed">
+                  If you weighed this meal on a kitchen scale, enter its total weight here. 
+                  This calibrates future AI estimates to your camera habits and plates over time.
+                </p>
+                <div className="flex gap-2">
+                  <input
+                    type="number"
+                    value={scaleWeight}
+                    onChange={(e) => setScaleWeight(e.target.value)}
+                    placeholder={`Estimated: ${analysis.weight || 200}g`}
+                    className="flex-1 bg-white border border-border px-3 py-2 rounded-lg text-xs outline-none focus:border-primary font-semibold text-textHeading"
+                  />
+                  <button
+                    onClick={async () => {
+                      const weightNum = parseFloat(scaleWeight);
+                      if (weightNum > 0) {
+                        const success = await calibrateMealWeight(analysis.id, weightNum);
+                        if (success) {
+                          setIsCalibrating(false);
+                          setScaleWeight("");
+                        }
+                      }
+                    }}
+                    className="px-4 py-2 bg-primary hover:bg-primary/95 text-white rounded-lg text-xs font-bold transition-all shadow-sm"
+                  >
+                    Calibrate
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex gap-2 mt-6">
+                <button className="flex-1 py-2.5 bg-white border border-[#E2E4DC] hover:border-primary text-textMuted hover:text-primary rounded-xl text-xs font-bold transition-all shadow-sm">
+                  Edit Ingredients
+                </button>
+                <button 
+                  onClick={() => setIsCalibrating(true)}
+                  className="px-4 py-2.5 bg-[#F5F6F1] hover:bg-primary hover:text-white border border-[#E2E4DC] text-textHeading rounded-xl text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-1.5"
+                >
+                  ⚖️ Calibrate Scale
+                </button>
+              </div>
+            )}
           </section>
 
           {/* NutriTrack Insight Card */}

@@ -104,6 +104,11 @@ export const uploadVoiceAudioRequest = async (audioBlob: Blob) => {
   return response.data;
 };
 
+export const calibrateMealWeightRequest = async (analysisId: string, trueWeight: number) => {
+  const response = await api.post<UploadSuccessResponse>("/upload/calibrate", { analysisId, trueWeight });
+  return response.data;
+};
+
 export const getUploadErrorMessage = (error: unknown): string => {
   const axiosError = error as AxiosError<ApiErrorResponse>;
 

@@ -106,6 +106,10 @@ const userProfileSchema = new mongoose.Schema(
       type: Number,
       default: 2500,
     },
+    calibration_offset: {
+      type: Number,
+      default: 1.0,
+    },
     workout_intensity: {
       type: String,
       enum: ["rest", "light", "moderate", "intense"],
@@ -219,6 +223,7 @@ const mapUserProfileToResponse = (profile) => {
     xp: profile.xp || 0,
     level: profile.level || 1,
     unlockedBadges: profile.unlocked_badges || [],
+    calibrationOffset: profile.calibration_offset || 1.0,
     ...metrics,
   };
 };

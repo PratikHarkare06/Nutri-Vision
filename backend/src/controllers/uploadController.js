@@ -312,10 +312,73 @@ const analyzeReceiptImage = async (req, res, next) => {
   }
 };
 
+const calibrateMealWeight = async (req, res, next) => {
+  const { analysisId, trueWeight } = req.body;
+  if (!analysisId || !trueWeight || isNaN(trueWeight) || trueWeight <= 0) {
+    return next(createAppError(400, "INVALID_DATA", "analysisId and a positive trueWeight are required."));
+  }
+
+  try {
+    const entry = await FoodEntry.findById(analysisId);
+    if (!entry) {
+      return next(createAppError(404, "NOT_FOUND", "Logged meal not found."));
+    }
+
+    const estimatedWeight = entry.weight || 100;
+    const ratio = trueWeight / estimatedWeight;
+
+    // Scale overall entry values
+    entry.weight = Math.round(trueWeight);
+    entry.volume = Math.round((entry.volume || 0) * ratio);
+    entry.calories = Math.round((entry.calories || 0) * ratio);
+    entry.protein = Math.round((entry.protein || 0) * ratio);
+    entry.carbs = Math.round((entry.carbs || 0) * ratio);
+    entry.fat = Math.round((entry.fat || 0) * ratio);
+    entry.fiber = Math.round((entry.fiber || 0) * ratio);
+
+    // Scale each ingredient inside ingredients_macros
+    if (entry.ingredients_macros) {
+      for (const [key, val] of entry.ingredients_macros.entries()) {
+        if (val) {
+          val.portionWeight = Math.round((val.portionWeight || 0) * ratio);
+          val.portionVolume = Math.round((val.portionVolume || 0) * ratio);
+          val.portionCalories = Math.round((val.portionCalories || 0) * ratio);
+          val.portionProtein = Math.round((val.portionProtein || 0) * ratio);
+          val.portionCarbs = Math.round((val.portionCarbs || 0) * ratio);
+          val.portionFat = Math.round((val.portionFat || 0) * ratio);
+          val.portionFiber = Math.round((val.portionFiber || 0) * ratio);
+          entry.ingredients_macros.set(key, val);
+        }
+      }
+    }
+
+    await entry.save();
+
+    // Calibrate per-user calibrationOffset in UserProfile
+    const profile = await UserProfile.findOne({ profile_key: "primary" });
+    if (profile) {
+      const oldOffset = profile.calibration_offset || 1.0;
+      // Moving average: 70% weight to old offset, 30% weight to new ratio
+      profile.calibration_offset = parseFloat((oldOffset * 0.7 + ratio * 0.3).toFixed(3));
+      await profile.save();
+      console.log(`[Calibration] Calibrated offset for user. Old: ${oldOffset}, New: ${profile.calibration_offset}, Ratio was: ${ratio}`);
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Calorie estimation calibrated successfully.",
+      data: mapFoodEntryToAnalysis(entry, req),
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
 module.exports = { 
   uploadImage, 
   correctIngredient, 
   scanBarcode, 
   analyzePantryImage,
-  analyzeReceiptImage
+  analyzeReceiptImage,
+  calibrateMealWeight
 };

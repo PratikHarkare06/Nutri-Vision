@@ -6,7 +6,8 @@ const { getFoodDensity } = require("../utils/foodDensity");
 const { runMiDaS } = require("../utils/midasDepth");
 const { getCachedNutrition, setCachedNutrition } = require("../utils/nutritionCache");
 const { emitProgress } = require("../utils/progressTracker");
-const { searchAnuvaadDb } = require("../utils/anuvaadSearch");
+const { searchAnuvaadDb, searchAnuvaadDbCandidates } = require("../utils/anuvaadSearch");
+const { UserProfile } = require("../models/UserProfile");
 const { applyUserCorrections } = require("../utils/userMemory");
 
 // ─── FatSecret OAuth2 Token ───────────────────────────────────────────────────
@@ -32,21 +33,30 @@ const getFatSecretToken = async () => {
 
 // ─── FatSecret Lookup ─────────────────────────────────────────────────────────
 
-const fetchFatSecret = async (accessToken, foodName) => {
+const fetchFatSecretCandidates = async (accessToken, foodName) => {
   try {
     const search = await fetch(
-      `https://platform.fatsecret.com/rest/server.api?method=foods.search&search_expression=${encodeURIComponent(foodName)}&format=json&max_results=3`,
+      `https://platform.fatsecret.com/rest/server.api?method=foods.search&search_expression=${encodeURIComponent(foodName)}&format=json&max_results=5`,
       { method: "POST", headers: { Authorization: `Bearer ${accessToken}` } }
     );
     const searchData = await search.json();
-    if (searchData.error) return null;
-    if (!searchData.foods?.food) return null;
+    if (searchData.error) return [];
+    if (!searchData.foods?.food) return [];
 
     const arr = Array.isArray(searchData.foods.food) ? searchData.foods.food : [searchData.foods.food];
-    const preferred = arr.find((f) => f.food_type === "Generic") || arr[0];
+    return arr.map(item => ({
+      food_id: item.food_id,
+      name: item.food_name || foodName
+    }));
+  } catch {
+    return [];
+  }
+};
 
+const fetchFatSecretDetails = async (accessToken, foodId, foodName) => {
+  try {
     const details = await fetch(
-      `https://platform.fatsecret.com/rest/server.api?method=food.get.v2&food_id=${preferred.food_id}&format=json`,
+      `https://platform.fatsecret.com/rest/server.api?method=food.get.v2&food_id=${foodId}&format=json`,
       { method: "POST", headers: { Authorization: `Bearer ${accessToken}` } }
     );
     const det = await details.json();
@@ -56,8 +66,6 @@ const fetchFatSecret = async (accessToken, foodName) => {
       ? det.food.servings.serving
       : [det.food.servings.serving];
 
-    // Prefer exact 100g serving; otherwise pick the serving closest to 100g
-    // (avoids tiny 1g servings that cause ×100 scale explosions)
     const servWithMetric = servArr.filter((s) => parseFloat(s.metric_serving_amount || 0) > 0);
     const serv = servWithMetric.length
       ? servWithMetric.reduce((best, s) =>
@@ -68,7 +76,6 @@ const fetchFatSecret = async (accessToken, foodName) => {
       : servArr[0];
 
     const servingAmount = parseFloat(serv.metric_serving_amount || 100) || 100;
-    // Cap scale at 10× to prevent explosion from very small serving sizes
     const scale = Math.min(100 / servingAmount, 10);
 
     return {
@@ -79,25 +86,79 @@ const fetchFatSecret = async (accessToken, foodName) => {
       fat:      Math.round(parseFloat(serv.fat || 0) * scale),
       fiber:    Math.round(parseFloat(serv.fiber || 0) * scale),
     };
-  } catch { return null; }
+  } catch {
+    return null;
+  }
 };
 
 // ─── USDA Lookup ──────────────────────────────────────────────────────────────
 
-const fetchUSDA = async (foodName) => {
+const fetchUSDACandidates = async (foodName) => {
   const key = (process.env.USDA_API_KEY || "").trim();
-  if (!key) return null;
+  if (!key) return [];
   try {
     const res = await fetch(
-      `https://api.nal.usda.gov/fdc/v1/foods/search?query=${encodeURIComponent(foodName)}&api_key=${key}&pageSize=3&dataType=Foundation,SR%20Legacy`
+      `https://api.nal.usda.gov/fdc/v1/foods/search?query=${encodeURIComponent(foodName)}&api_key=${key}&pageSize=5&dataType=Foundation,SR%20Legacy`
     );
-    if (!res.ok) return null;
+    if (!res.ok) return [];
     const data = await res.json();
-    if (!data.foods?.length) return null;
-    const food = data.foods[0];
-    const g = (id) => { const n = food.foodNutrients?.find((n) => n.nutrientId === id); return n ? Math.round(n.value) : 0; };
-    return { name: food.description, source: "usda", calories: g(1008), protein: g(1003), carbs: g(1005), fat: g(1004), fiber: g(1079) };
-  } catch { return null; }
+    if (!data.foods?.length) return [];
+    
+    return data.foods.map(food => {
+      const g = (id) => { const n = food.foodNutrients?.find((n) => n.nutrientId === id); return n ? Math.round(n.value) : 0; };
+      return {
+        name: food.description,
+        source: "usda",
+        calories: g(1008),
+        protein: g(1003),
+        carbs: g(1005),
+        fat: g(1004),
+        fiber: g(1079)
+      };
+    });
+  } catch {
+    return [];
+  }
+};
+
+const resolveSemanticMatch = async (ingredient, cookingMethod, candidates) => {
+  if (!candidates || candidates.length === 0) return null;
+  if (candidates.length === 1) return candidates[0];
+
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) return candidates[0];
+
+  const ai = new GoogleGenAI({ apiKey });
+  const candidatesList = candidates.map((c, idx) => `${idx}: "${c.name || c.description || c.food_name}"`).join("\n");
+
+  const prompt = `You are a food database router. We need to match a user's food item to the most semantically accurate entry in our nutritional database.
+User item: "${ingredient}"
+Cooking method: "${cookingMethod || 'none'}"
+
+Database options:
+${candidatesList}
+
+Select the single best option index from the database options. Bias your match heavily toward the cooking method: for example, if the cooking method is "raw", prefer "raw" or "uncooked" options; if "fried", prefer "fried" options; if "grilled", prefer "grilled" options.
+Return ONLY the number index of the best match (e.g., "1"). Do not write any other text or markdown wrapping.`;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: prompt,
+      config: {
+        temperature: 0.1
+      }
+    });
+    const cleanedText = response.text.replace(/[^0-9]/g, "").trim();
+    const index = parseInt(cleanedText, 10);
+    if (!isNaN(index) && index >= 0 && index < candidates.length) {
+      console.log(`  🧠 Semantic Routing selected candidate [${index}]: "${candidates[index].name || candidates[index].food_name}" for "${ingredient}" (method: ${cookingMethod})`);
+      return candidates[index];
+    }
+  } catch (error) {
+    console.warn("Semantic matching error:", error);
+  }
+  return candidates[0];
 };
 
 // ─── P3.9: Open Food Facts (3rd cascade) ─────────────────────────────────────
@@ -172,28 +233,63 @@ const getHardcodedFallback = (foodName) => {
 
 // ─── P2.4: Cached unified lookup with validation ──────────────────────────────
 
-const getNutritionalData = async (fatSecretToken, foodName) => {
+const getNutritionalData = async (fatSecretToken, foodName, cookingMethod = "none") => {
   const cached = getCachedNutrition(foodName);
   if (cached) { console.log(`  ⚡ Cache hit: "${foodName}"`); return cached; }
 
   let result = null;
 
-  // 1. Try Indian database first for maximum authenticity
-  const anuvaadMatch = searchAnuvaadDb(foodName);
-  if (anuvaadMatch) {
-    result = validateNutrition(anuvaadMatch);
-    if (result) console.log(`  🇮🇳 Anuvaad match: "${foodName}" → "${result.name}"`);
+  // 1. Try Indian database first using semantic candidate routing
+  const anuvaadCandidates = searchAnuvaadDbCandidates(foodName);
+  if (anuvaadCandidates && anuvaadCandidates.length > 0) {
+    const semMatch = await resolveSemanticMatch(foodName, cookingMethod, anuvaadCandidates);
+    if (semMatch) {
+      result = validateNutrition(semMatch);
+      if (result) console.log(`  🇮🇳 Anuvaad match (semantic): "${foodName}" (method: ${cookingMethod}) → "${result.name}"`);
+    }
   }
 
-  // 2. Local Fallbacks (prevent external API hallucination like USDA turning 'lentil stew' into 'chicken')
+  // 2. Local Fallbacks
   if (!result) result = getHardcodedFallback(foodName);
 
   // 3. Global external APIs
-  if (!result && fatSecretToken) result = validateNutrition(await fetchFatSecret(fatSecretToken, foodName));
-  if (!result) result = validateNutrition(await fetchUSDA(foodName));
+  if (!result && fatSecretToken) {
+    const searchCandidates = await fetchFatSecretCandidates(fatSecretToken, foodName);
+    if (searchCandidates && searchCandidates.length > 0) {
+      const semMatch = await resolveSemanticMatch(foodName, cookingMethod, searchCandidates);
+      if (semMatch) {
+        result = validateNutrition(await fetchFatSecretDetails(fatSecretToken, semMatch.food_id, foodName));
+      }
+    }
+  }
+
+  if (!result) {
+    const usdaCandidates = await fetchUSDACandidates(foodName);
+    if (usdaCandidates && usdaCandidates.length > 0) {
+      const semMatch = await resolveSemanticMatch(foodName, cookingMethod, usdaCandidates);
+      if (semMatch) result = validateNutrition(semMatch);
+    }
+  }
+
   if (!result) result = validateNutrition(await fetchOpenFoodFacts(foodName));
 
-  if (result) setCachedNutrition(foodName, result);
+  if (result) {
+    // Check discrepancy between Tier 1 (Anuvaad) and Tier 2/3 (FatSecret/USDA/Open Food Facts)
+    // Run comparison asynchronously to avoid blocking the main thread
+    if (anuvaadCandidates && anuvaadCandidates.length > 0) {
+      const tier1 = anuvaadCandidates[0];
+      const tier1Cal = tier1.calories;
+      const otherCal = result.calories;
+      const calDiff = Math.abs(tier1Cal - otherCal);
+      const percentDiff = calDiff / Math.max(tier1Cal, 1);
+      
+      if (percentDiff > 0.25 && calDiff > 30) {
+        console.warn(`[Nutrition Discrepancy] Ingredient: "${foodName}". Tier 1 (Anuvaad) energy: ${tier1Cal} kcal/100g vs Tier 2/3 (${result.source}) energy: ${otherCal} kcal/100g. Discrepancy: ${Math.round(percentDiff * 100)}%`);
+      }
+    }
+
+    setCachedNutrition(foodName, result);
+  }
   return result;
 };
 
@@ -213,6 +309,10 @@ const buildVisionPrompt = (userMealType = "") => {
 Return ONLY a raw JSON object with this exact structure:
 {
   "ingredients": ["ingredient1", "ingredient2", ...],
+  "cookingMethods": {
+    "ingredient1": "raw|grilled|fried|boiled|roasted|steamed|baked|none",
+    "ingredient2": "..."
+  },
   "mealType": "breakfast|lunch|dinner|snack|drink|dessert",
   "mealCategory": "short dish name (1-3 words, e.g. 'margherita pizza', 'chicken biryani')"
 }
@@ -242,6 +342,7 @@ const parseVisionResponse = (text) => {
   return {
     succeeded: true,
     ingredients,
+    cookingMethods: parsed.cookingMethods || {},
     mealType: parsed.mealType || "unknown",
     mealCategory: parsed.mealCategory || "meal",
   };
@@ -545,10 +646,14 @@ const analyzeFoodWithFatSecret = async (imagePath, mimeType, imageUrl, userMealT
   const detectedFoods = [];
   const ingredientsMacros = {};
   const resolvedNames = new Set(); // dedup by API-returned name
+  const cookingMethods = geminiData.cookingMethods || {};
 
   for (let i = 0; i < allIngredients.length; i += BATCH_SIZE) {
     const batch = allIngredients.slice(i, i + BATCH_SIZE);
-    const results = await Promise.all(batch.map((ing) => getNutritionalData(fatSecretToken, ing)));
+    const results = await Promise.all(batch.map((ing) => {
+      const method = cookingMethods[ing] || "none";
+      return getNutritionalData(fatSecretToken, ing, method);
+    }));
 
     for (let j = 0; j < batch.length; j++) {
       const nutriments = results[j];
@@ -604,6 +709,21 @@ const analyzeFoodWithFatSecret = async (imagePath, mimeType, imageUrl, userMealT
     calculatedWeight = Math.max(50, bboxRatio * maxEstimatedWeight);
     totalVolume = 0;
     console.log(`[NutriVision] Volume: density fallback → ${calculatedWeight} g`);
+  }
+
+  // Apply per-user/per-device calibration offset feedback loop
+  try {
+    const profile = await UserProfile.findOne({ profile_key: "primary" }).lean();
+    if (profile && typeof profile.calibration_offset === "number") {
+      const offset = profile.calibration_offset;
+      if (offset !== 1.0) {
+        calculatedWeight *= offset;
+        totalVolume *= offset;
+        console.log(`[Calibration] Applied user offset ${offset} → weight: ${Math.round(calculatedWeight)}g`);
+      }
+    }
+  } catch (calErr) {
+    console.error("Failed to apply calibration offset:", calErr);
   }
 
   // Apply meal-type portion scale factor:

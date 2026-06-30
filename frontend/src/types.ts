@@ -40,6 +40,11 @@ export type UploadAnalysis = {
   mealType?: string;
   mealCategory?: string;
   volumeSource?: "midas" | "density";
+  confidenceRange?: {
+    min: number;
+    max: number;
+    percentage: number;
+  };
 };
 
 export type PantryRecipe = {
@@ -112,6 +117,7 @@ export type UserProfile = {
   xp?: number;
   level?: number;
   unlockedBadges?: string[];
+  calibrationOffset?: number;
   updatedAt: string;
 };
 

@@ -76,13 +76,38 @@ const mapFoodEntryToAnalysis = (entry, req) => {
       imageUrl = `${protocol}://${host}/uploads/${filename}`;
     }
   }
+
+  // Calculate dynamic confidence interval
+  const totalCalories = entry.calories ?? 0;
+  const foodsList = entry.foods || [];
+  let weightedConfidence = 0.85; // Default base confidence
+
+  if (foodsList.length > 0) {
+    let confidenceSum = 0;
+    let counts = 0;
+    foodsList.forEach(f => {
+      if (typeof f.confidence === "number") {
+        confidenceSum += f.confidence;
+        counts++;
+      }
+    });
+    if (counts > 0) {
+      weightedConfidence = confidenceSum / counts;
+    }
+  }
+
+  // Range percentage between 12% and 25% based on confidence
+  const rangePercentage = 0.25 - (weightedConfidence * 0.13);
+  const minCalories = Math.max(0, Math.round(totalCalories * (1 - rangePercentage)));
+  const maxCalories = Math.round(totalCalories * (1 + rangePercentage));
+
   return {
-    createdAt: entry.created_at,
+    createdAt: entry.created_at || entry.createdAt,
     foods: entry.foods || [],
-    id: entry._id.toString(),
+    id: entry._id ? entry._id.toString() : (entry.id || ""),
     imageUrl: imageUrl,
     macros: {
-      calories: entry.calories ?? 0,
+      calories: totalCalories,
       protein: entry.protein ?? 0,
       carbs: entry.carbs ?? 0,
       fat: entry.fat ?? 0,
@@ -93,9 +118,14 @@ const mapFoodEntryToAnalysis = (entry, req) => {
     ingredientsMacros: entry.ingredients_macros instanceof Map
       ? Object.fromEntries(entry.ingredients_macros)
       : (entry.ingredients_macros || {}),
-    mealType: entry.mealType || "unknown",
-    mealCategory: entry.mealCategory || "meal",
-    volumeSource: entry.volumeSource || "density",
+    mealType: entry.mealType || entry.meal_type || "unknown",
+    mealCategory: entry.mealCategory || entry.meal_category || "meal",
+    volumeSource: entry.volumeSource || entry.volume_source || "density",
+    confidenceRange: {
+      min: minCalories,
+      max: maxCalories,
+      percentage: Math.round(rangePercentage * 100)
+    }
   };
 };
 

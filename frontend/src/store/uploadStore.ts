@@ -1,5 +1,5 @@
+import { getUploadErrorMessage, uploadImageRequest, scanBarcodeRequest, uploadPantryImageRequest, uploadVoiceLogRequest, uploadReceiptRequest, uploadVoiceAudioRequest, calibrateMealWeightRequest } from "../services/uploadApi";
 import { create } from "zustand";
-import { getUploadErrorMessage, uploadImageRequest, scanBarcodeRequest, uploadPantryImageRequest, uploadVoiceLogRequest, uploadReceiptRequest, uploadVoiceAudioRequest } from "../services/uploadApi";
 import type { UploadAnalysis, PantryAnalysis } from "../types";
 
 export type ScannedProduct = {
@@ -29,6 +29,7 @@ type UploadState = {
   deductIngredientsFromPantry: (ingredients: string[]) => void;
   uploadVoiceLog: (transcript: string) => Promise<boolean>;
   uploadVoiceAudio: (audioBlob: Blob) => Promise<boolean>;
+  calibrateMealWeight: (analysisId: string, trueWeight: number) => Promise<boolean>;
   addScannedProductToHistory: (barcode: string, name: string) => void;
   clearScannedHistory: () => void;
   uploadReceipt: (file: File | null) => Promise<string[] | null>;
@@ -344,6 +345,31 @@ export const useUploadStore = create<UploadState>((set, get) => ({
 
     try {
       const response = await uploadVoiceAudioRequest(audioBlob);
+      set({
+        analysis: response.data,
+        errorMessage: "",
+        progressMessage: "",
+        isUploading: false,
+      });
+      return true;
+    } catch (error) {
+      set({
+        errorMessage: getUploadErrorMessage(error),
+        progressMessage: "",
+        isUploading: false,
+      });
+      return false;
+    }
+  },
+  calibrateMealWeight: async (analysisId, trueWeight) => {
+    set({
+      errorMessage: "",
+      progressMessage: "Calibrating calorie estimation...",
+      isUploading: true,
+    });
+
+    try {
+      const response = await calibrateMealWeightRequest(analysisId, trueWeight);
       set({
         analysis: response.data,
         errorMessage: "",

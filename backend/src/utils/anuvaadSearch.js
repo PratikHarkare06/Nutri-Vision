@@ -139,4 +139,72 @@ const getAnuvaadItem = (foodName) => {
   };
 };
 
-module.exports = { searchAnuvaadDb, getAnuvaadItem };
+const searchAnuvaadDbCandidates = (query) => {
+  if (!anuvaadData || anuvaadData.length === 0) return [];
+
+  const cleanQuery = cleanString(query);
+  const queryWords = cleanQuery.split(' ').filter(w => w.length >= 2);
+  if (queryWords.length === 0) return [];
+
+  const candidates = [];
+
+  for (const item of anuvaadData) {
+    const rawName = item.food_name.toLowerCase();
+    const itemName = cleanString(rawName);
+    
+    if (itemName === cleanQuery || cleanString(item.food_name) === cleanQuery) {
+      candidates.push({ ...item, score: 1.0 });
+      continue;
+    }
+
+    if (queryWords.length < 2) {
+      continue;
+    }
+
+    const itemWords = Array.from(new Set(itemName.split(' ').filter(w => w.length >= 2)));
+    if (itemWords.length === 0) continue;
+
+    let matches = 0;
+    for (const qWord of queryWords) {
+      if (itemWords.includes(qWord)) {
+        matches += 1;
+      }
+    }
+
+    if (matches === 0) continue;
+
+    const queryMatchRatio = matches / queryWords.length;
+    const extraWords = Math.max(0, itemWords.length - matches);
+    const itemPenalty = 1 / (1 + 0.12 * extraWords);
+
+    const modifiers = [
+      "soup", "stew", "nog", "juice", "curry", "gravy", "powder", "sauce", "chutney", "pickle", "sandwich", "roll", "burger", "salad", "pizza",
+      "dosa", "idli", "roti", "naan", "paratha", "rice", "biryani", "samosa", "khichdi", "upma", "poha", "dhokla", "vada", "pav"
+    ];
+    let modifierPenalty = 1.0;
+    for (const mod of modifiers) {
+      if (itemWords.includes(mod) && !queryWords.includes(mod)) {
+        modifierPenalty = 0.15;
+      }
+    }
+
+    const score = queryMatchRatio * itemPenalty * modifierPenalty;
+    if (score >= 0.3) {
+      candidates.push({ ...item, score });
+    }
+  }
+
+  candidates.sort((a, b) => b.score - a.score);
+
+  return candidates.slice(0, 5).map(c => ({
+    name: c.food_name,
+    source: 'anuvaad',
+    calories: Math.round(c.energy_kcal || 0),
+    protein: Math.round(c.protein_g || 0),
+    carbs: Math.round(c.carb_g || 0),
+    fat: Math.round(c.fat_g || 0),
+    fiber: Math.round(c.fibre_g || 0)
+  }));
+};
+
+module.exports = { searchAnuvaadDb, searchAnuvaadDbCandidates, getAnuvaadItem };

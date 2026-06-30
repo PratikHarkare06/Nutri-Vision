@@ -2,7 +2,7 @@ const express = require("express");
 const { getHistory } = require("../controllers/historyController");
 const { getProfile, saveProfile } = require("../controllers/profileController");
 const { uploadImage: uploadImageMiddleware, uploadAudioMiddleware } = require("../config/multer");
-const { uploadImage, correctIngredient, scanBarcode, analyzePantryImage, analyzeReceiptImage } = require("../controllers/uploadController");
+const { uploadImage, correctIngredient, scanBarcode, analyzePantryImage, analyzeReceiptImage, calibrateMealWeight } = require("../controllers/uploadController");
 const { parseVoiceLog, parseVoiceAudio } = require("../controllers/voiceLogController");
 const { handleChat } = require("../controllers/chatController");
 const { protect, optionalProtect } = require("../middleware/authMiddleware");
@@ -26,6 +26,7 @@ router.get("/upload/progress/:id", (req, res) => {
 });
 
 router.post("/upload/correct", optionalProtect, correctIngredient);
+router.post("/upload/calibrate", optionalProtect, calibrateMealWeight);
 router.post("/upload/barcode", optionalProtect, scanBarcode);
 router.post("/upload/pantry", optionalProtect, uploadImageMiddleware, analyzePantryImage);
 router.post("/upload/receipt", optionalProtect, uploadImageMiddleware, analyzeReceiptImage);
